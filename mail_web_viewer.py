@@ -124,5 +124,56 @@ def del_account():
     save_accounts(accounts)
     return redirect(url_for("admin"))
 
+# 新增：测试账号连接
+@app.route("/test_account", methods=["POST"])
+def test_account():
+    if not session.get('logged_in'):
+        return jsonify({"result": "未登录"})
+    user = request.form.get("user")
+    accounts = load_accounts()
+    account = next((a for a in accounts if a["user"] == user), None)
+    if not account:
+        return jsonify({"result": "账号不存在"})
+    try:
+        from imapclient import IMAPClient
+        with IMAPClient(account["host"]) as server:
+            server.login(account["user"], account["password"])
+        return jsonify({"result": "连接成功"})
+    except Exception as e:
+        return jsonify({"result": f"连接失败：{str(e)}"})
+
+# 新增：导出账号
+@app.route("/export_accounts")
+def export_accounts():
+    if not session.get('logged_in'):
+        return jsonify([])
+    return jsonify(load_accounts())
+
+# 新增：导入账号
+@app.route("/import_accounts", methods=["POST"])
+def import_accounts():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    try:
+        accounts = json.loads(request.data)
+        save_accounts(accounts)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+# 新增：批量删除账号
+@app.route("/batch_delete", methods=["POST"])
+def batch_delete():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    try:
+        users = request.json.get("users", [])
+        accounts = load_accounts()
+        accounts = [a for a in accounts if a["user"] not in users]
+        save_accounts(accounts)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8001)

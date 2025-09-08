@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>邮箱账号管理</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <h2>添加邮箱账号</h2>
+    {% if error %}
+        <div style="color:red">{{ error }}</div>
+    {% endif %}
+    <form method="post">
+        <label>账号名称（可选）：<input type="text" name="name"></label><br>
+        <label>IMAP服务器地址：<input type="text" name="host" required></label><br>
+        <label>邮箱账号：<input type="text" name="user" required></label><br>
+        <label>邮箱密码/授权码：<input type="password" name="password" required></label><br>
+        <button type="submit">添加</button>
+    </form>
+    <h3>已保存邮箱账号</h3>
+    <table>
+        <tr><th>名称</th><th>账号</th><th>IMAP服务器</th><th>操作</th></tr>
+        {% for a in accounts %}
+            <tr>
+                <td>{{ a.name }}</td>
+                <td>{{ a.user }}</td>
+                <td>{{ a.host }}</td>
+                <td>
+                    <form method="post" action="/del_account" style="display:inline">
+                        <input type="hidden" name="user" value="{{ a.user }}">
+                        <button type="submit" onclick="return confirm('确定删除该邮箱账号？')">删除</button>
+                    </form>
+                </td>
+            </tr>
+        {% endfor %}
+    </table>
+    <a href="/">返回收取邮件页面</a>
+</body>
+</html>

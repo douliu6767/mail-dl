@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>收取邮箱验证码</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <h2>收取邮箱邮件</h2>
+    <form id="mailForm">
+        <label>选择邮箱账号：
+            <select name="user" id="user">
+                {% for user in accounts %}
+                    <option value="{{ user }}">{{ user }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <button type="submit">获取最新邮件</button>
+    </form>
+    <div id="result"></div>
+    <script>
+        document.getElementById('mailForm').onsubmit = async function(e) {
+            e.preventDefault();
+            let formData = new FormData(this);
+            let resp = await fetch('/getmail', {
+                method: 'POST',
+                body: formData
+            });
+            let data = await resp.json();
+            let result = document.getElementById('result');
+            if(data.error) {
+                result.innerHTML = `<b>错误：</b> ${data.error}`;
+            } else {
+                result.innerHTML = `<b>主题：</b> ${data.subject}<br><b>内容：</b><pre>${data.body}</pre>` +
+                    (data.code ? `<b>验证码：</b> <span style="color:red;">${data.code}</span>` : "");
+            }
+        };
+    </script>
+</body>
+</html>

@@ -2,38 +2,241 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <title>邮箱账号管理</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <title>邮箱账号管理后台</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <style id="theme-style">
+        body {
+            background: linear-gradient(120deg, #f8f9fa 0%, #e2e6ea 100%);
+            padding: 30px;
+        }
+        .card { border-radius: 15px; box-shadow: 0 4px 16px #dee2e6; }
+        .table-striped>tbody>tr:hover { background-color: #eaf4ff; transition: background .2s; }
+        .welcome { font-size: 1.2rem; font-weight: bold; color: #0d6efd; letter-spacing: 1px; }
+        .logo { height: 38px; margin-right: 12px; }
+        .dark-toggle { float: right; margin-top: 10px; }
+        .btn-darkmode { margin-left: 10px; }
+    </style>
 </head>
 <body>
-    <h2>添加邮箱账号</h2>
-    {% if error %}
-        <div style="color:red">{{ error }}</div>
-    {% endif %}
-    <form method="post">
-        <label>账号名称（可选）：<input type="text" name="name"></label><br>
-        <label>IMAP服务器地址：<input type="text" name="host" required></label><br>
-        <label>邮箱账号：<input type="text" name="user" required></label><br>
-        <label>邮箱密码/授权码：<input type="password" name="password" required></label><br>
-        <button type="submit">添加</button>
-    </form>
-    <h3>已保存邮箱账号</h3>
-    <table>
-        <tr><th>名称</th><th>账号</th><th>IMAP服务器</th><th>操作</th></tr>
-        {% for a in accounts %}
-            <tr>
-                <td>{{ a.name }}</td>
-                <td>{{ a.user }}</td>
-                <td>{{ a.host }}</td>
-                <td>
-                    <form method="post" action="/del_account" style="display:inline">
-                        <input type="hidden" name="user" value="{{ a.user }}">
-                        <button type="submit" onclick="return confirm('确定删除该邮箱账号？')">删除</button>
-                    </form>
-                </td>
-            </tr>
-        {% endfor %}
-    </table>
-    <a href="/">返回收取邮件页面</a>
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mt-3 mb-4">
+            <div class="d-flex align-items-center">
+                <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" class="logo" alt="LOGO">
+                <span class="welcome">欢迎使用邮箱账号管理后台</span>
+            </div>
+            <div>
+                <span class="me-2 text-success">管理员：{{ username }}</span>
+                <a href="/logout" class="btn btn-outline-secondary">退出登录</a>
+                <button type="button" class="btn btn-dark btn-darkmode" onclick="toggleDarkMode()">暗色模式</button>
+            </div>
+        </div>
+
+        {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+
+        <!-- 导入导出操作 -->
+        <div class="mb-3">
+            <button type="button" class="btn btn-info me-2" onclick="exportAccounts()">导出账号</button>
+            <label class="btn btn-success mb-0">
+                导入账号
+                <input type="file" accept="application/json" style="display:none;" onchange="importAccounts(this)">
+            </label>
+            <button type="button" class="btn btn-danger ms-2" onclick="deleteSelected()">批量删除</button>
+        </div>
+
+        <!-- 添加新邮箱账号 -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white rounded-top">添加新邮箱账号</div>
+            <div class="card-body">
+                <form method="post" action="/admin" class="row g-3">
+                    <div class="col-md-2">
+                        <input type="text" name="name" class="form-control" placeholder="备注" value="{{ request.form.name or '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" name="host" class="form-control" placeholder="IMAP服务器" required value="{{ request.form.host or '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" name="user" class="form-control" placeholder="邮箱地址" required value="{{ request.form.user or '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <input type="password" name="password" class="form-control" placeholder="邮箱密码" required>
+                    </div>
+                    <div class="col-md-1 d-grid">
+                        <button type="submit" class="btn btn-primary">添加</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 已添加邮箱账号列表 -->
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white rounded-top">已添加邮箱账号</div>
+            <div class="card-body">
+                <form id="batch-form" method="post" action="/batch_delete">
+                <table class="table table-striped align-middle">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="check-all" onclick="toggleSelectAll(this)"></th>
+                            <th>备注</th>
+                            <th>IMAP服务器</th>
+                            <th>邮箱地址</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for acc in accounts %}
+                        <tr>
+                            <td>
+                                <input type="checkbox" name="selected_users" value="{{ acc.user }}">
+                            </td>
+                            <td>{{ acc.name or '' }}</td>
+                            <td>{{ acc.host }}</td>
+                            <td>{{ acc.user }}</td>
+                            <td>
+                                <form method="post" action="/del_account" style="display:inline;">
+                                    <input type="hidden" name="user" value="{{ acc.user }}">
+                                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('确认删除该账号？');">删除</button>
+                                </form>
+                                <button type="button" class="btn btn-outline-success btn-sm ms-1" onclick="testAccount('{{ acc.user }}', this)">测试连接</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                </form>
+                {% if accounts|length == 0 %}
+                <div class="text-muted">暂无账号，请先添加。</div>
+                {% endif %}
+            </div>
+        </div>
+        <div id="test-result" style="display:none;" class="alert mt-2"></div>
+    </div>
+
+    <script>
+        // 暗色模式实现
+        function toggleDarkMode() {
+            const theme = document.getElementById('theme-style');
+            if (theme.getAttribute('data-dark') === '1') {
+                theme.innerHTML = `
+                    body { background: linear-gradient(120deg, #f8f9fa 0%, #e2e6ea 100%); padding: 30px; }
+                    .card { border-radius: 15px; box-shadow: 0 4px 16px #dee2e6; }
+                    .table-striped>tbody>tr:hover { background-color: #eaf4ff; transition: background .2s; }
+                    .welcome { font-size: 1.2rem; font-weight: bold; color: #0d6efd; letter-spacing: 1px; }
+                    .logo { height: 38px; margin-right: 12px; }
+                    .dark-toggle { float: right; margin-top: 10px; }
+                    .btn-darkmode { margin-left: 10px; }
+                `;
+                theme.setAttribute('data-dark', '0');
+                localStorage.setItem('darkmode', '0');
+            } else {
+                theme.innerHTML = `
+                    body { background: linear-gradient(120deg, #23272f 0%, #16181c 100%); color: #eee; padding: 30px; }
+                    .card { border-radius: 15px; box-shadow: 0 4px 16px #333; background: #23272f; color: #eee; }
+                    .table-striped>tbody>tr:hover { background-color: #2e3542 !important; transition: background .2s; }
+                    .welcome { font-size: 1.2rem; font-weight: bold; color: #ffc107; letter-spacing: 1px; }
+                    .logo { height: 38px; margin-right: 12px; }
+                    .dark-toggle { float: right; margin-top: 10px; }
+                    .btn-darkmode { margin-left: 10px; }
+                    .btn, .form-control { background: #292c35; color: #eee; border-color: #333; }
+                    .btn-primary, .btn-info, .btn-success { color: #fff; }
+                `;
+                theme.setAttribute('data-dark', '1');
+                localStorage.setItem('darkmode', '1');
+            }
+        }
+        // 自动加载暗色模式
+        window.onload = function() {
+            if (localStorage.getItem('darkmode') === '1') {
+                toggleDarkMode();
+            }
+        }
+
+        // 导出账号
+        function exportAccounts() {
+            fetch("/export_accounts")
+            .then(r => r.json())
+            .then(data => {
+                const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type: "application/json"}));
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "accounts.json";
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+        }
+        // 导入账号
+        function importAccounts(input) {
+            if (input.files.length == 0) return;
+            const file = input.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                fetch("/import_accounts", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: e.target.result
+                }).then(r => r.json())
+                .then(data => {
+                    if (data.success) location.reload();
+                    else alert("导入失败：" + data.error);
+                });
+            }
+            reader.readAsText(file);
+        }
+        // 批量删除
+        function deleteSelected() {
+            const checked = Array.from(document.querySelectorAll('input[name="selected_users"]:checked')).map(e => e.value);
+            if (checked.length == 0) { alert("请选择需要删除的账号"); return; }
+            if (!confirm("确认删除选中的账号？")) return;
+            fetch("/batch_delete", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({users: checked})
+            }).then(r => r.json())
+            .then(data => {
+                if (data.success) location.reload();
+                else alert("批量删除失败：" + data.error);
+            });
+        }
+        // 全选
+        function toggleSelectAll(box) {
+            document.querySelectorAll('input[name="selected_users"]').forEach(e => {
+                e.checked = box.checked;
+            });
+        }
+        // 测试连接
+        function testAccount(user, btn) {
+            btn.disabled = true;
+            btn.textContent = "测试中...";
+            fetch("/test_account", {
+                method: "POST",
+                headers: {"Content-Type": "application/x-www-form-urlencoded"},
+                body: "user=" + encodeURIComponent(user)
+            })
+            .then(r => r.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.textContent = "测试连接";
+                var resultDiv = document.getElementById("test-result");
+                resultDiv.style.display = "block";
+                if (data.result.indexOf("成功") !== -1) {
+                    resultDiv.className = "alert alert-success mt-2";
+                } else {
+                    resultDiv.className = "alert alert-danger mt-2";
+                }
+                resultDiv.textContent = user + "：" + data.result;
+                setTimeout(() => { resultDiv.style.display = "none"; }, 5000);
+            })
+            .catch(() => {
+                btn.disabled = false;
+                btn.textContent = "测试连接";
+                var resultDiv = document.getElementById("test-result");
+                resultDiv.className = "alert alert-danger mt-2";
+                resultDiv.textContent = "测试失败，请重试！";
+                resultDiv.style.display = "block";
+                setTimeout(() => { resultDiv.style.display = "none"; }, 5000);
+            });
+        }
+    </script>
 </body>
 </html>

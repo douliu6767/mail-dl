@@ -1,7 +1,7 @@
 import json
 import re
 import os
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
 from models import db, AdminUser
 
 app = Flask(__name__)
@@ -114,6 +114,28 @@ def admin():
         return redirect(url_for("admin"))
     return render_template("admin.html", accounts=load_accounts(), error=None, username=session.get('username'))
 
+@app.route("/change_admin_pass", methods=['POST'])
+def change_admin_pass():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    new_pass = request.form.get('new_password', '')
+    confirm_pass = request.form.get('confirm_password', '')
+    if not new_pass or not confirm_pass:
+        flash('请输入完整信息', 'danger')
+    elif new_pass != confirm_pass:
+        flash('两次密码输入不一致', 'danger')
+    elif len(new_pass) < 6:
+        flash('密码长度至少6位', 'danger')
+    else:
+        user = AdminUser.query.filter_by(username=session.get('username')).first()
+        if user:
+            user.set_password(new_pass)
+            db.session.commit()
+            flash('密码修改成功', 'success')
+        else:
+            flash('管理员账号不存在', 'danger')
+    return redirect(url_for('admin'))
+
 @app.route("/del_account", methods=["POST"])
 def del_account():
     if not session.get('logged_in'):
@@ -124,7 +146,6 @@ def del_account():
     save_accounts(accounts)
     return redirect(url_for("admin"))
 
-# 新增：测试账号连接
 @app.route("/test_account", methods=["POST"])
 def test_account():
     if not session.get('logged_in'):
@@ -142,14 +163,12 @@ def test_account():
     except Exception as e:
         return jsonify({"result": f"连接失败：{str(e)}"})
 
-# 新增：导出账号
 @app.route("/export_accounts")
 def export_accounts():
     if not session.get('logged_in'):
         return jsonify([])
     return jsonify(load_accounts())
 
-# 新增：导入账号
 @app.route("/import_accounts", methods=["POST"])
 def import_accounts():
     if not session.get('logged_in'):
@@ -161,7 +180,6 @@ def import_accounts():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
-# 新增：批量删除账号
 @app.route("/batch_delete", methods=["POST"])
 def batch_delete():
     if not session.get('logged_in'):

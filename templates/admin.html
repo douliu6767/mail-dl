@@ -1658,6 +1658,130 @@
             loadProxyList();
             showMessage('info', '代理列表已刷新');
         }
+        
+        function editProxy(proxyId) {
+            // Get proxy details and show edit modal
+            fetch('/proxies')
+                .then(response => response.json())
+                .then(proxies => {
+                    const proxy = proxies.find(p => p.id === proxyId);
+                    if (proxy) {
+                        document.getElementById('edit-proxy-id').value = proxy.id;
+                        document.getElementById('edit-proxy-name').value = proxy.name || '';
+                        document.getElementById('edit-proxy-type').value = proxy.type;
+                        document.getElementById('edit-proxy-host').value = proxy.host;
+                        document.getElementById('edit-proxy-port').value = proxy.port;
+                        document.getElementById('edit-proxy-username').value = proxy.username || '';
+                        document.getElementById('edit-proxy-password').value = proxy.password || '';
+                        document.getElementById('edit-proxy-status').value = proxy.status;
+                        showEditProxyModal();
+                    }
+                });
+        }
+        
+        function showEditProxyModal() {
+            const modal = document.getElementById('editProxyModal');
+            modal.style.display = 'block';
+            modal.classList.add('show');
+        }
+        
+        function hideEditProxyModal() {
+            const modal = document.getElementById('editProxyModal');
+            modal.style.display = 'none';
+            modal.classList.remove('show');
+            document.getElementById('editProxyForm').reset();
+        }
+        
+        function updateProxy() {
+            const formData = new FormData(document.getElementById('editProxyForm'));
+            
+            fetch('/proxies/update', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    hideEditProxyModal();
+                    refreshProxyList();
+                } else {
+                    showAlert(data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                showAlert('更新失败：' + error.message, 'danger');
+            });
+        }
+        
+        function deleteProxy(proxyId) {
+            if (!confirm('确认删除该代理？')) return;
+            
+            fetch(`/proxies/${proxyId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    refreshProxyList();
+                } else {
+                    showAlert(data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                showAlert('删除失败：' + error.message, 'danger');
+            });
+        }
+        
+        function testProxy(proxyId) {
+            fetch(`/proxies/${proxyId}/test`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('代理连接测试成功', 'success');
+                } else {
+                    showAlert('代理连接测试失败：' + data.error, 'warning');
+                }
+            })
+            .catch(error => {
+                showAlert('测试失败：' + error.message, 'danger');
+            });
+        }
+        
+        function deleteSelectedProxies() {
+            const selected = Array.from(document.querySelectorAll('input[name="selected_proxies"]:checked'))
+                .map(cb => parseInt(cb.value));
+            
+            if (selected.length === 0) {
+                showAlert('请选择要删除的代理', 'warning');
+                return;
+            }
+            
+            if (!confirm(`确认删除 ${selected.length} 个代理？`)) return;
+            
+            fetch('/proxies/batch_delete', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ids: selected})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    refreshProxyList();
+                } else {
+                    showAlert(data.error, 'danger');
+                }
+            });
+        }
+        
+        function toggleSelectAllProxies(checkbox) {
+            const checkboxes = document.querySelectorAll('input[name="selected_proxies"]');
+            checkboxes.forEach(cb => cb.checked = checkbox.checked);
+        }
 
         function showMessage(type, message) {
             // 创建或更新消息提示

@@ -1,7 +1,8 @@
+import json
+import re
 import os
-import uuid
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
-from models import db, AdminUser, MailAccount
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+from models import db, AdminUser
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("ADMIN_SECRET_KEY", "a_very_secret_key")
@@ -19,36 +20,62 @@ def init_admin():
             db.session.commit()
 init_admin()
 
+ACCOUNTS_FILE = "accounts.json"
+CODE_REGEX = r"\b(\d{6})\b"
+
+def load_accounts():
+    if os.path.exists(ACCOUNTS_FILE):
+        with open(ACCOUNTS_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    return []
+
+def save_accounts(accounts):
+    with open(ACCOUNTS_FILE, "w", encoding="utf-8") as f:
+        json.dump(accounts, f, ensure_ascii=False, indent=2)
+
 @app.route("/")
 def index():
-    return redirect(url_for('admin'))
+    accounts = load_accounts()
+    return render_template("index.html", accounts=[a["user"] for a in accounts])
 
-@app.route("/admin", methods=["GET"])
-def admin():
-    if not session.get('logged_in'):
-        return redirect(url_for('login'))
-    # 筛选参数
-    search_email = request.args.get('search_email', '')
-    search_project = request.args.get('search_project', '')
-    search_tag = request.args.get('search_tag', '')
-    search_protocol = request.args.get('search_protocol', '')
-    search_status = request.args.get('search_status', '')
-    # 基础查询
-    query = MailAccount.query
-    if search_email:
-        query = query.filter(MailAccount.email.contains(search_email))
-    if search_project:
-        query = query.filter(MailAccount.project.contains(search_project))
-    if search_tag:
-        query = query.filter(MailAccount.tags.contains(search_tag))
-    if search_protocol:
-        query = query.filter(MailAccount.protocol == search_protocol)
-    if search_status:
-        query = query.filter(MailAccount.status == search_status)
-    accounts = query.all()
-    return render_template("admin.html", accounts=accounts, username=session.get('username'))
+@app.route("/getmail", methods=["POST"])
+def getmail():
+    user = request.form.get("user")
+    accounts = load_accounts()
+    account = next((a for a in accounts if a["user"] == user), None)
+    if not account:
+        return jsonify({"error": "未找到该账号"})
+    try:
+        from imapclient import IMAPClient
+        import email
+        with IMAPClient(account["host"]) as server:
+            server.login(account["user"], account["password"])
+            server.select_folder("INBOX")
+            messages = server.search('ALL')
+            if not messages:
+                return jsonify({"subject": "无邮件", "body": "邮箱为空。"})
+            latest_uid = messages[-1]
+            raw_message = server.fetch([latest_uid], ['RFC822'])[latest_uid][b'RFC822']
+            msg = email.message_from_bytes(raw_message)
+            subject = email.header.make_header(email.header.decode_header(msg.get("Subject", "")))
+            body = ""
+            if msg.is_multipart():
+                for part in msg.walk():
+                    if part.get_content_type() == "text/plain":
+                        text = part.get_payload(decode=True)
+                        if text:
+                            body += text.decode(errors="ignore")
+            else:
+                text = msg.get_payload(decode=True)
+                if text:
+                    body = text.decode(errors="ignore")
+            code_match = re.search(CODE_REGEX, body)
+            code = code_match.group(1) if code_match else ""
+            return jsonify({"subject": str(subject), "body": body, "code": code})
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
-@app.route("/login", methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
     if request.method == 'POST':
@@ -68,178 +95,85 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-@app.route("/account/add", methods=['POST'])
-def add_account():
+@app.route("/admin", methods=["GET", "POST"])
+def admin():
     if not session.get('logged_in'):
-        return jsonify({"success": False, "error": "未登录"})
-    data = request.form
-    email = data.get('email', '').strip()
-    if not email:
-        return jsonify({"success": False, "error": "邮箱不能为空"})
-    if MailAccount.query.filter_by(email=email).first():
-        return jsonify({"success": False, "error": "邮箱已存在"})
-    acc = MailAccount(
-        id=str(uuid.uuid4()),
-        email=email,
-        password=data.get('password', ''),
-        project=data.get('project', ''),
-        tags=data.get('tags', ''),
-        protocol=data.get('protocol', ''),
-        login_status=data.get('login_status', ''),
-        result_desc=data.get('result_desc', ''),
-        use_proxy=data.get('use_proxy', ''),
-        proxy_addr=data.get('proxy_addr', ''),
-        proxy_type=data.get('proxy_type', ''),
-        source=data.get('source', ''),
-        status=data.get('status', ''),
-        use_times=data.get('use_times', ''),
-        expire_time=data.get('expire_time', ''),
-        remark=data.get('remark', ''),
-        app_id=data.get('app_id', ''),
-        flag=data.get('flag', '')
-    )
-    db.session.add(acc)
-    db.session.commit()
-    return jsonify({"success": True})
+        return redirect(url_for('login'))
+    if request.method == "POST":
+        name = request.form.get("name", "")
+        host = request.form.get("host", "")
+        user = request.form.get("user", "")
+        password = request.form.get("password", "")
+        if not (host and user and password):
+            return render_template("admin.html", accounts=load_accounts(), error="请填写完整信息", username=session.get('username'))
+        accounts = load_accounts()
+        if any(a["user"] == user for a in accounts):
+            return render_template("admin.html", accounts=accounts, error="该账号已存在", username=session.get('username'))
+        accounts.append({"name": name, "host": host, "user": user, "password": password})
+        save_accounts(accounts)
+        return redirect(url_for("admin"))
+    return render_template("admin.html", accounts=load_accounts(), error=None, username=session.get('username'))
 
-@app.route("/account/<id>/update", methods=['POST'])
-def update_account(id):
+@app.route("/del_account", methods=["POST"])
+def del_account():
     if not session.get('logged_in'):
-        return jsonify({"success": False, "error": "未登录"})
-    acc = MailAccount.query.filter_by(id=id).first()
-    if not acc:
-        return jsonify({"success": False, "error": "账号不存在"})
-    data = request.form
-    acc.email = data.get('email', acc.email)
-    acc.password = data.get('password', acc.password)
-    acc.project = data.get('project', acc.project)
-    acc.tags = data.get('tags', acc.tags)
-    acc.protocol = data.get('protocol', acc.protocol)
-    acc.login_status = data.get('login_status', acc.login_status)
-    acc.result_desc = data.get('result_desc', acc.result_desc)
-    acc.use_proxy = data.get('use_proxy', acc.use_proxy)
-    acc.proxy_addr = data.get('proxy_addr', acc.proxy_addr)
-    acc.proxy_type = data.get('proxy_type', acc.proxy_type)
-    acc.source = data.get('source', acc.source)
-    acc.status = data.get('status', acc.status)
-    acc.use_times = data.get('use_times', acc.use_times)
-    acc.expire_time = data.get('expire_time', acc.expire_time)
-    acc.remark = data.get('remark', acc.remark)
-    acc.app_id = data.get('app_id', acc.app_id)
-    acc.flag = data.get('flag', acc.flag)
-    db.session.commit()
-    return jsonify({"success": True})
+        return redirect(url_for('login'))
+    user = request.form.get("user")
+    accounts = load_accounts()
+    accounts = [a for a in accounts if a["user"] != user]
+    save_accounts(accounts)
+    return redirect(url_for("admin"))
 
-@app.route("/account/<id>/delete", methods=['POST'])
-def delete_account(id):
+# 新增：测试账号连接
+@app.route("/test_account", methods=["POST"])
+def test_account():
     if not session.get('logged_in'):
-        return jsonify({"success": False, "error": "未登录"})
-    acc = MailAccount.query.filter_by(id=id).first()
-    if not acc:
-        return jsonify({"success": False, "error": "账号不存在"})
-    db.session.delete(acc)
-    db.session.commit()
-    return jsonify({"success": True})
-
-@app.route("/account/batch_delete", methods=['POST'])
-def batch_delete():
-    if not session.get('logged_in'):
-        return jsonify({"success": False, "error": "未登录"})
-    ids = request.json.get("ids", [])
-    for _id in ids:
-        acc = MailAccount.query.filter_by(id=_id).first()
-        if acc:
-            db.session.delete(acc)
-    db.session.commit()
-    return jsonify({"success": True})
-
-@app.route("/account/batch_import", methods=['POST'])
-def batch_import():
-    if not session.get('logged_in'):
-        return jsonify({"success": False, "error": "未登录"})
-    # 支持 json 格式导入
+        return jsonify({"result": "未登录"})
+    user = request.form.get("user")
+    accounts = load_accounts()
+    account = next((a for a in accounts if a["user"] == user), None)
+    if not account:
+        return jsonify({"result": "账号不存在"})
     try:
-        items = request.json.get('accounts', [])
-        for data in items:
-            if MailAccount.query.filter_by(email=data.get('email')).first():
-                continue
-            acc = MailAccount(
-                id=str(uuid.uuid4()),
-                email=data.get('email', ''),
-                password=data.get('password', ''),
-                project=data.get('project', ''),
-                tags=data.get('tags', ''),
-                protocol=data.get('protocol', ''),
-                login_status=data.get('login_status', ''),
-                result_desc=data.get('result_desc', ''),
-                use_proxy=data.get('use_proxy', ''),
-                proxy_addr=data.get('proxy_addr', ''),
-                proxy_type=data.get('proxy_type', ''),
-                source=data.get('source', ''),
-                status=data.get('status', ''),
-                use_times=data.get('use_times', ''),
-                expire_time=data.get('expire_time', ''),
-                remark=data.get('remark', ''),
-                app_id=data.get('app_id', ''),
-                flag=data.get('flag', '')
-            )
-            db.session.add(acc)
-        db.session.commit()
+        from imapclient import IMAPClient
+        with IMAPClient(account["host"]) as server:
+            server.login(account["user"], account["password"])
+        return jsonify({"result": "连接成功"})
+    except Exception as e:
+        return jsonify({"result": f"连接失败：{str(e)}"})
+
+# 新增：导出账号
+@app.route("/export_accounts")
+def export_accounts():
+    if not session.get('logged_in'):
+        return jsonify([])
+    return jsonify(load_accounts())
+
+# 新增：导入账号
+@app.route("/import_accounts", methods=["POST"])
+def import_accounts():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    try:
+        accounts = json.loads(request.data)
+        save_accounts(accounts)
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
-@app.route("/account/batch_export", methods=['GET'])
-def batch_export():
+# 新增：批量删除账号
+@app.route("/batch_delete", methods=["POST"])
+def batch_delete():
     if not session.get('logged_in'):
-        return jsonify([])
-    accounts = MailAccount.query.all()
-    data = []
-    for acc in accounts:
-        data.append({
-            "id": acc.id,
-            "email": acc.email,
-            "password": acc.password,
-            "project": acc.project,
-            "tags": acc.tags,
-            "protocol": acc.protocol,
-            "login_status": acc.login_status,
-            "result_desc": acc.result_desc,
-            "use_proxy": acc.use_proxy,
-            "proxy_addr": acc.proxy_addr,
-            "proxy_type": acc.proxy_type,
-            "source": acc.source,
-            "status": acc.status,
-            "use_times": acc.use_times,
-            "expire_time": acc.expire_time,
-            "remark": acc.remark,
-            "app_id": acc.app_id,
-            "flag": acc.flag
-        })
-    return jsonify(data)
-
-@app.route("/account/test_login/<id>", methods=["POST"])
-def test_login(id):
-    if not session.get('logged_in'):
-        return jsonify({"result": "未登录"})
-    acc = MailAccount.query.filter_by(id=id).first()
-    if not acc:
-        return jsonify({"result": "账号不存在"})
-    # 测试 IMAP/POP3 连接逻辑
+        return jsonify({"success": False, "error": "未登录"})
     try:
-        # 实际测试逻辑略，请根据 protocol 字段实现
-        # 这里只模拟
-        if acc.protocol == "imap":
-            result = "IMAP连接成功"
-        elif acc.protocol == "pop3":
-            result = "POP3连接成功"
-        else:
-            result = "未知协议"
-        acc.login_status = result
-        db.session.commit()
-        return jsonify({"result": result})
+        users = request.json.get("users", [])
+        accounts = load_accounts()
+        accounts = [a for a in accounts if a["user"] not in users]
+        save_accounts(accounts)
+        return jsonify({"success": True})
     except Exception as e:
-        return jsonify({"result": f"连接失败：{str(e)}"})
+        return jsonify({"success": False, "error": str(e)})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8001, debug=True)
+    app.run(host="0.0.0.0", port=8001)

@@ -88,37 +88,26 @@
             font-size: 15px;
             line-height: 1.6;
         }
-        .alert-info {
-            background: #e8f4f8;
-            border: 1px solid #bee5eb;
-            color: #0c5460;
-            border-radius: 8px;
-            margin-bottom: 25px;
-        }
     </style>
 </head>
 <body>
     <div class="main-container">
-        <h2 class="page-title">🎫 卡密邮箱服务</h2>
-        
-        <div class="alert alert-info">
-            <strong>🔐 访问说明:</strong> 本服务需要有效卡密才能使用。请使用您的专属访问链接或联系管理员获取卡密。
-        </div>
-        
+        <h2 class="page-title">📧 收取邮箱邮件</h2>
         <form id="mailForm">
             <div class="mb-3">
-                <label for="card_code" class="form-label">卡密编号</label>
-                <input type="text" class="form-control" name="card_code" id="card_code" 
-                       placeholder="请输入您的卡密编号..." required>
-            </div>
-            <div class="mb-3">
-                <label for="user" class="form-label">邮箱账号</label>
+                <label for="user" class="form-label">输入邮箱账号</label>
                 <input type="email" class="form-control" name="user" id="user" 
                        placeholder="请输入邮箱地址..." required autocomplete="email">
+                <div class="form-text">
+                    支持的邮箱: 
+                    {% for account in accounts %}
+                        <span class="badge bg-secondary">{{ account }}</span>
+                    {% endfor %}
+                </div>
             </div>
             <div class="text-center">
                 <button type="submit" class="btn btn-primary">
-                    🔓 使用卡密获取邮件
+                    获取最新邮件
                 </button>
             </div>
         </form>
@@ -133,11 +122,11 @@
             
             // 显示加载状态
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 验证中...';
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 获取中...';
             
             try {
                 let formData = new FormData(this);
-                let resp = await fetch('/getmail_with_card', {
+                let resp = await fetch('/getmail', {
                     method: 'POST',
                     body: formData
                 });
@@ -166,7 +155,7 @@
             } finally {
                 // 恢复按钮状态
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = '🔓 使用卡密获取邮件';
+                submitBtn.innerHTML = '获取最新邮件';
             }
         };
     </script>

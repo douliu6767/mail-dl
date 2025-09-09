@@ -4,155 +4,788 @@
     <meta charset="UTF-8">
     <title>邮箱账号管理后台</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style id="theme-style">
         body {
-            background: linear-gradient(120deg, #f8f9fa 0%, #e2e6ea 100%);
-            padding: 30px;
+            background: #f8f9fa;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
-        .card { border-radius: 15px; box-shadow: 0 4px 16px #dee2e6; }
-        .table-striped>tbody>tr:hover { background-color: #eaf4ff; transition: background .2s; }
-        .welcome { font-size: 1.2rem; font-weight: bold; color: #0d6efd; letter-spacing: 1px; }
-        .logo { height: 38px; margin-right: 12px; }
-        .dark-toggle { float: right; margin-top: 10px; }
-        .btn-darkmode { margin-left: 10px; }
+        
+        /* Sidebar Styles */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 250px;
+            background: #2c3e50;
+            color: white;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar-header {
+            padding: 1rem;
+            border-bottom: 1px solid #34495e;
+            display: flex;
+            align-items: center;
+        }
+        
+        .sidebar-header .logo {
+            height: 32px;
+            margin-right: 10px;
+        }
+        
+        .sidebar-header h4 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        .sidebar-menu {
+            padding: 0;
+            margin: 0;
+            list-style: none;
+        }
+        
+        .sidebar-menu li {
+            border-bottom: 1px solid #34495e;
+        }
+        
+        .sidebar-menu a {
+            display: block;
+            padding: 12px 20px;
+            color: #bdc3c7;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar-menu a:hover, .sidebar-menu a.active {
+            background: #34495e;
+            color: #3498db;
+            padding-left: 30px;
+        }
+        
+        .sidebar-menu i {
+            margin-right: 10px;
+            width: 18px;
+        }
+        
+        /* Main Content Styles */
+        .main-content {
+            margin-left: 250px;
+            min-height: 100vh;
+            transition: all 0.3s ease;
+        }
+        
+        .content-header {
+            background: white;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #dee2e6;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .content-header .d-flex {
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .page-content {
+            padding: 2rem;
+        }
+        
+        .content-section {
+            display: none;
+        }
+        
+        .content-section.active {
+            display: block;
+        }
+        
+        /* Card and Table Styles */
+        .card { 
+            border-radius: 10px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border: none;
+        }
+        
+        .card-header {
+            background: #3498db;
+            color: white;
+            border-radius: 10px 10px 0 0 !important;
+            padding: 1rem 1.5rem;
+            font-weight: 600;
+        }
+        
+        .table-striped>tbody>tr:hover { 
+            background-color: #f8f9fa; 
+            transition: background .2s; 
+        }
+        
+        .welcome { 
+            font-size: 1.2rem; 
+            font-weight: bold; 
+            color: #2c3e50; 
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            border-color: #3498db;
+        }
+        
+        .btn-primary:hover {
+            background: #2980b9;
+            border-color: #2980b9;
+        }
+        
+        /* Dark Mode Toggle */
+        .btn-darkmode { 
+            margin-left: 10px; 
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="d-flex justify-content-between align-items-center mt-3 mb-4">
-            <div class="d-flex align-items-center">
-                <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" class="logo" alt="LOGO">
-                <span class="welcome">欢迎使用邮箱账号管理后台</span>
-            </div>
-            <div>
-                <span class="me-2 text-success">管理员：{{ username }}</span>
-                <a href="/logout" class="btn btn-outline-secondary">退出登录</a>
-                <button type="button" class="btn btn-dark btn-darkmode" onclick="toggleDarkMode()">暗色模式</button>
-            </div>
+    <!-- Sidebar Navigation -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" class="logo" alt="LOGO">
+            <h4>管理后台</h4>
         </div>
+        <ul class="sidebar-menu">
+            <li><a href="#" data-section="dashboard" class="nav-link active"><i class="bi bi-house"></i>首页</a></li>
+            <li><a href="#" data-section="email-management" class="nav-link"><i class="bi bi-envelope"></i>邮箱管理</a></li>
+            <li><a href="#" data-section="card-management" class="nav-link"><i class="bi bi-credit-card"></i>卡密管理</a></li>
+            <li><a href="#" data-section="proxy-pool" class="nav-link"><i class="bi bi-globe"></i>代理池</a></li>
+            <li><a href="#" data-section="inbox-logs" class="nav-link"><i class="bi bi-list-ul"></i>收件日志</a></li>
+            <li><a href="#" data-section="card-logs" class="nav-link"><i class="bi bi-journal-text"></i>卡密日志</a></li>
+            <li><a href="#" data-section="system-settings" class="nav-link"><i class="bi bi-gear"></i>系统设置</a></li>
+        </ul>
+    </div>
 
-        {% if error %}
-        <div class="alert alert-danger">{{ error }}</div>
-        {% endif %}
-
-        <!-- 导入导出操作 -->
-        <div class="mb-3">
-            <button type="button" class="btn btn-info me-2" onclick="exportAccounts()">导出账号</button>
-            <label class="btn btn-success mb-0">
-                导入账号
-                <input type="file" accept="application/json" style="display:none;" onchange="importAccounts(this)">
-            </label>
-            <button type="button" class="btn btn-danger ms-2" onclick="deleteSelected()">批量删除</button>
-        </div>
-
-        <!-- 添加新邮箱账号 -->
-        <div class="card mb-4">
-            <div class="card-header bg-primary text-white rounded-top">添加新邮箱账号</div>
-            <div class="card-body">
-                <form method="post" action="/admin" class="row g-3">
-                    <div class="col-md-2">
-                        <input type="text" name="name" class="form-control" placeholder="备注" value="{{ request.form.name or '' }}">
-                    </div>
-                    <div class="col-md-3">
-                        <input type="text" name="host" class="form-control" placeholder="IMAP服务器" required value="{{ request.form.host or '' }}">
-                    </div>
-                    <div class="col-md-3">
-                        <input type="text" name="user" class="form-control" placeholder="邮箱地址" required value="{{ request.form.user or '' }}">
-                    </div>
-                    <div class="col-md-3">
-                        <input type="password" name="password" class="form-control" placeholder="邮箱密码" required>
-                    </div>
-                    <div class="col-md-1 d-grid">
-                        <button type="submit" class="btn btn-primary">添加</button>
-                    </div>
-                </form>
+    <!-- Main Content Area -->
+    <div class="main-content">
+        <!-- Header -->
+        <div class="content-header">
+            <div class="d-flex">
+                <div>
+                    <span class="welcome">欢迎使用邮箱账号管理后台</span>
+                </div>
+                <div>
+                    <span class="me-2 text-success">管理员：{{ username }}</span>
+                    <a href="/logout" class="btn btn-outline-secondary btn-sm">退出登录</a>
+                    <button type="button" class="btn btn-dark btn-sm btn-darkmode" onclick="toggleDarkMode()">暗色模式</button>
+                </div>
             </div>
         </div>
 
-        <!-- 已添加邮箱账号列表 -->
-        <div class="card mb-4">
-            <div class="card-header bg-info text-white rounded-top">已添加邮箱账号</div>
-            <div class="card-body">
-                <form id="batch-form" method="post" action="/batch_delete">
-                <table class="table table-striped align-middle">
-                    <thead>
-                        <tr>
-                            <th><input type="checkbox" id="check-all" onclick="toggleSelectAll(this)"></th>
-                            <th>备注</th>
-                            <th>IMAP服务器</th>
-                            <th>邮箱地址</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for acc in accounts %}
-                        <tr>
-                            <td>
-                                <input type="checkbox" name="selected_users" value="{{ acc.user }}">
-                            </td>
-                            <td>{{ acc.name or '' }}</td>
-                            <td>{{ acc.host }}</td>
-                            <td>{{ acc.user }}</td>
-                            <td>
-                                <form method="post" action="/del_account" style="display:inline;">
-                                    <input type="hidden" name="user" value="{{ acc.user }}">
-                                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('确认删除该账号？');">删除</button>
-                                </form>
-                                <button type="button" class="btn btn-outline-success btn-sm ms-1" onclick="testAccount('{{ acc.user }}', this)">测试连接</button>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                </form>
-                {% if accounts|length == 0 %}
-                <div class="text-muted">暂无账号，请先添加。</div>
-                {% endif %}
+        <!-- Page Content -->
+        <div class="page-content">
+            {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+            {% endif %}
+
+            <!-- Dashboard Section -->
+            <div id="dashboard" class="content-section active">
+                <div class="row">
+                    <div class="col-lg-3 col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="bi bi-envelope h2 text-primary"></i>
+                                <h5>邮箱账号</h5>
+                                <h3 class="text-primary">{{ accounts|length }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="bi bi-credit-card h2 text-success"></i>
+                                <h5>卡密总数</h5>
+                                <h3 class="text-success">0</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="bi bi-globe h2 text-info"></i>
+                                <h5>代理节点</h5>
+                                <h3 class="text-info">0</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="bi bi-list-ul h2 text-warning"></i>
+                                <h5>今日日志</h5>
+                                <h3 class="text-warning">0</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-speedometer2"></i> 系统概览
+                    </div>
+                    <div class="card-body">
+                        <p>欢迎使用邮箱账号管理后台系统！</p>
+                        <p>您可以通过左侧导航栏访问各种功能模块：</p>
+                        <ul>
+                            <li><strong>邮箱管理</strong>：管理IMAP邮箱账号，包括添加、删除、测试连接等功能</li>
+                            <li><strong>卡密管理</strong>：管理系统卡密（即将推出）</li>
+                            <li><strong>代理池</strong>：管理代理服务器池（即将推出）</li>
+                            <li><strong>收件日志</strong>：查看邮件收取日志（即将推出）</li>
+                            <li><strong>卡密日志</strong>：查看卡密使用日志（即将推出）</li>
+                            <li><strong>系统设置</strong>：配置系统参数（即将推出）</li>
+                        </ul>
+                    </div>
+                </div>
             </div>
+
+            <!-- Email Management Section -->
+            <div id="email-management" class="content-section">
+                <!-- 导入导出操作 -->
+                <div class="mb-3">
+                    <button type="button" class="btn btn-success me-2" onclick="exportAccounts()">导出账号</button>
+                    <div class="d-inline-block me-2">
+                        <label class="btn btn-info">
+                            导入账号 <input type="file" style="display:none;" accept=".json" onchange="importAccounts(this)">
+                        </label>
+                    </div>
+                    <button type="button" class="btn btn-danger" onclick="deleteSelected()">批量删除</button>
+                </div>
+
+                <!-- 添加邮箱账号表单 -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="bi bi-plus-circle"></i> 添加新邮箱账号
+                    </div>
+                    <div class="card-body">
+                        <form method="post" action="/admin">
+                            <div class="row g-2">
+                                <div class="col-md-2">
+                                    <input type="text" name="name" class="form-control" placeholder="备注" value="{{ request.form.name or '' }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="text" name="host" class="form-control" placeholder="IMAP服务器" required value="{{ request.form.host or '' }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="text" name="user" class="form-control" placeholder="邮箱地址" required value="{{ request.form.user or '' }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="password" name="password" class="form-control" placeholder="邮箱密码" required>
+                                </div>
+                                <div class="col-md-1 d-grid">
+                                    <button type="submit" class="btn btn-primary">添加</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 已添加邮箱账号列表 -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="bi bi-envelope-check"></i> 已添加邮箱账号
+                    </div>
+                    <div class="card-body">
+                        <form id="batch-form" method="post" action="/batch_delete">
+                        <table class="table table-striped align-middle">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="check-all" onclick="toggleSelectAll(this)"></th>
+                                    <th>备注</th>
+                                    <th>IMAP服务器</th>
+                                    <th>邮箱地址</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for acc in accounts %}
+                                <tr>
+                                    <td>
+                                        <input type="checkbox" name="selected_users" value="{{ acc.user }}">
+                                    </td>
+                                    <td>{{ acc.name or '' }}</td>
+                                    <td>{{ acc.host }}</td>
+                                    <td>{{ acc.user }}</td>
+                                    <td>
+                                        <form method="post" action="/del_account" style="display:inline;">
+                                            <input type="hidden" name="user" value="{{ acc.user }}">
+                                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('确认删除该账号？');">删除</button>
+                                        </form>
+                                        <button type="button" class="btn btn-outline-success btn-sm ms-1" onclick="testAccount('{{ acc.user }}', this)">测试连接</button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        </form>
+                        {% if accounts|length == 0 %}
+                        <div class="text-muted">暂无账号，请先添加。</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Other sections for future features -->
+            <div id="card-management" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-credit-card"></i> 卡密管理
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center py-5">
+                            <i class="bi bi-credit-card display-1 text-muted"></i>
+                            <h4 class="mt-3">卡密管理功能</h4>
+                            <p class="text-muted">此功能正在开发中，敬请期待...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="proxy-pool" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-globe"></i> 代理池管理
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center py-5">
+                            <i class="bi bi-globe display-1 text-muted"></i>
+                            <h4 class="mt-3">代理池管理功能</h4>
+                            <p class="text-muted">此功能正在开发中，敬请期待...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="inbox-logs" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-list-ul"></i> 收件日志
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center py-5">
+                            <i class="bi bi-list-ul display-1 text-muted"></i>
+                            <h4 class="mt-3">收件日志功能</h4>
+                            <p class="text-muted">此功能正在开发中，敬请期待...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="card-logs" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-journal-text"></i> 卡密日志
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center py-5">
+                            <i class="bi bi-journal-text display-1 text-muted"></i>
+                            <h4 class="mt-3">卡密日志功能</h4>
+                            <p class="text-muted">此功能正在开发中，敬请期待...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="system-settings" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-gear"></i> 系统设置
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center py-5">
+                            <i class="bi bi-gear display-1 text-muted"></i>
+                            <h4 class="mt-3">系统设置功能</h4>
+                            <p class="text-muted">此功能正在开发中，敬请期待...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="test-result" style="display:none;" class="alert mt-2"></div>
         </div>
-        <div id="test-result" style="display:none;" class="alert mt-2"></div>
     </div>
 
     <script>
-        // 暗色模式实现
+        // Navigation functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Navigation link functionality
+            const navLinks = document.querySelectorAll('.nav-link');
+            const contentSections = document.querySelectorAll('.content-section');
+
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    // Remove active class from all links
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    // Add active class to clicked link
+                    this.classList.add('active');
+                    
+                    // Hide all content sections
+                    contentSections.forEach(section => section.classList.remove('active'));
+                    // Show the target section
+                    const targetSection = document.getElementById(this.dataset.section);
+                    if (targetSection) {
+                        targetSection.classList.add('active');
+                    }
+                });
+            });
+        });
+
+        // Updated dark mode implementation for sidebar layout
         function toggleDarkMode() {
             const theme = document.getElementById('theme-style');
             if (theme.getAttribute('data-dark') === '1') {
+                // Light mode
                 theme.innerHTML = `
-                    body { background: linear-gradient(120deg, #f8f9fa 0%, #e2e6ea 100%); padding: 30px; }
-                    .card { border-radius: 15px; box-shadow: 0 4px 16px #dee2e6; }
-                    .table-striped>tbody>tr:hover { background-color: #eaf4ff; transition: background .2s; }
-                    .welcome { font-size: 1.2rem; font-weight: bold; color: #0d6efd; letter-spacing: 1px; }
-                    .logo { height: 38px; margin-right: 12px; }
-                    .dark-toggle { float: right; margin-top: 10px; }
-                    .btn-darkmode { margin-left: 10px; }
+                    body {
+                        background: #f8f9fa;
+                        margin: 0;
+                        padding: 0;
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    }
+                    
+                    .sidebar {
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        height: 100vh;
+                        width: 250px;
+                        background: #2c3e50;
+                        color: white;
+                        z-index: 1000;
+                        transition: all 0.3s ease;
+                    }
+                    
+                    .sidebar-header {
+                        padding: 1rem;
+                        border-bottom: 1px solid #34495e;
+                        display: flex;
+                        align-items: center;
+                    }
+                    
+                    .sidebar-header .logo {
+                        height: 32px;
+                        margin-right: 10px;
+                    }
+                    
+                    .sidebar-header h4 {
+                        margin: 0;
+                        font-size: 1.1rem;
+                        font-weight: 600;
+                    }
+                    
+                    .sidebar-menu {
+                        padding: 0;
+                        margin: 0;
+                        list-style: none;
+                    }
+                    
+                    .sidebar-menu li {
+                        border-bottom: 1px solid #34495e;
+                    }
+                    
+                    .sidebar-menu a {
+                        display: block;
+                        padding: 12px 20px;
+                        color: #bdc3c7;
+                        text-decoration: none;
+                        transition: all 0.3s ease;
+                    }
+                    
+                    .sidebar-menu a:hover, .sidebar-menu a.active {
+                        background: #34495e;
+                        color: #3498db;
+                        padding-left: 30px;
+                    }
+                    
+                    .sidebar-menu i {
+                        margin-right: 10px;
+                        width: 18px;
+                    }
+                    
+                    .main-content {
+                        margin-left: 250px;
+                        min-height: 100vh;
+                        transition: all 0.3s ease;
+                    }
+                    
+                    .content-header {
+                        background: white;
+                        padding: 1rem 2rem;
+                        border-bottom: 1px solid #dee2e6;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    }
+                    
+                    .content-header .d-flex {
+                        align-items: center;
+                        justify-content: space-between;
+                    }
+                    
+                    .page-content {
+                        padding: 2rem;
+                    }
+                    
+                    .content-section {
+                        display: none;
+                    }
+                    
+                    .content-section.active {
+                        display: block;
+                    }
+                    
+                    .card { 
+                        border-radius: 10px; 
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                        border: none;
+                    }
+                    
+                    .card-header {
+                        background: #3498db;
+                        color: white;
+                        border-radius: 10px 10px 0 0 !important;
+                        padding: 1rem 1.5rem;
+                        font-weight: 600;
+                    }
+                    
+                    .table-striped>tbody>tr:hover { 
+                        background-color: #f8f9fa; 
+                        transition: background .2s; 
+                    }
+                    
+                    .welcome { 
+                        font-size: 1.2rem; 
+                        font-weight: bold; 
+                        color: #2c3e50; 
+                    }
+                    
+                    .btn-primary {
+                        background: #3498db;
+                        border-color: #3498db;
+                    }
+                    
+                    .btn-primary:hover {
+                        background: #2980b9;
+                        border-color: #2980b9;
+                    }
+                    
+                    .btn-darkmode { 
+                        margin-left: 10px; 
+                    }
+                    
+                    @media (max-width: 768px) {
+                        .sidebar {
+                            transform: translateX(-100%);
+                        }
+                        
+                        .sidebar.show {
+                            transform: translateX(0);
+                        }
+                        
+                        .main-content {
+                            margin-left: 0;
+                        }
+                    }
                 `;
                 theme.setAttribute('data-dark', '0');
                 localStorage.setItem('darkmode', '0');
             } else {
+                // Dark mode
                 theme.innerHTML = `
-                    body { background: linear-gradient(120deg, #23272f 0%, #16181c 100%); color: #eee; padding: 30px; }
-                    .card { border-radius: 15px; box-shadow: 0 4px 16px #333; background: #23272f; color: #eee; }
-                    .table-striped>tbody>tr:hover { background-color: #2e3542 !important; transition: background .2s; }
-                    .welcome { font-size: 1.2rem; font-weight: bold; color: #ffc107; letter-spacing: 1px; }
-                    .logo { height: 38px; margin-right: 12px; }
-                    .dark-toggle { float: right; margin-top: 10px; }
-                    .btn-darkmode { margin-left: 10px; }
-                    .btn, .form-control { background: #292c35; color: #eee; border-color: #333; }
-                    .btn-primary, .btn-info, .btn-success { color: #fff; }
+                    body {
+                        background: #1a1a1a;
+                        margin: 0;
+                        padding: 0;
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                        color: #eee;
+                    }
+                    
+                    .sidebar {
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        height: 100vh;
+                        width: 250px;
+                        background: #1e2832;
+                        color: white;
+                        z-index: 1000;
+                        transition: all 0.3s ease;
+                    }
+                    
+                    .sidebar-header {
+                        padding: 1rem;
+                        border-bottom: 1px solid #2a3441;
+                        display: flex;
+                        align-items: center;
+                    }
+                    
+                    .sidebar-header .logo {
+                        height: 32px;
+                        margin-right: 10px;
+                    }
+                    
+                    .sidebar-header h4 {
+                        margin: 0;
+                        font-size: 1.1rem;
+                        font-weight: 600;
+                    }
+                    
+                    .sidebar-menu {
+                        padding: 0;
+                        margin: 0;
+                        list-style: none;
+                    }
+                    
+                    .sidebar-menu li {
+                        border-bottom: 1px solid #2a3441;
+                    }
+                    
+                    .sidebar-menu a {
+                        display: block;
+                        padding: 12px 20px;
+                        color: #bdc3c7;
+                        text-decoration: none;
+                        transition: all 0.3s ease;
+                    }
+                    
+                    .sidebar-menu a:hover, .sidebar-menu a.active {
+                        background: #2a3441;
+                        color: #ffc107;
+                        padding-left: 30px;
+                    }
+                    
+                    .sidebar-menu i {
+                        margin-right: 10px;
+                        width: 18px;
+                    }
+                    
+                    .main-content {
+                        margin-left: 250px;
+                        min-height: 100vh;
+                        transition: all 0.3s ease;
+                    }
+                    
+                    .content-header {
+                        background: #23272f;
+                        padding: 1rem 2rem;
+                        border-bottom: 1px solid #333;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                    }
+                    
+                    .content-header .d-flex {
+                        align-items: center;
+                        justify-content: space-between;
+                    }
+                    
+                    .page-content {
+                        padding: 2rem;
+                    }
+                    
+                    .content-section {
+                        display: none;
+                    }
+                    
+                    .content-section.active {
+                        display: block;
+                    }
+                    
+                    .card { 
+                        border-radius: 10px; 
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+                        border: none;
+                        background: #23272f;
+                        color: #eee;
+                    }
+                    
+                    .card-header {
+                        background: #ffc107;
+                        color: #000;
+                        border-radius: 10px 10px 0 0 !important;
+                        padding: 1rem 1.5rem;
+                        font-weight: 600;
+                    }
+                    
+                    .table-striped>tbody>tr:hover { 
+                        background-color: #2e3542 !important; 
+                        transition: background .2s; 
+                    }
+                    
+                    .welcome { 
+                        font-size: 1.2rem; 
+                        font-weight: bold; 
+                        color: #ffc107; 
+                    }
+                    
+                    .btn-primary {
+                        background: #ffc107;
+                        border-color: #ffc107;
+                        color: #000;
+                    }
+                    
+                    .btn-primary:hover {
+                        background: #e0a800;
+                        border-color: #e0a800;
+                    }
+                    
+                    .btn, .form-control { 
+                        background: #292c35; 
+                        color: #eee; 
+                        border-color: #333; 
+                    }
+                    
+                    .btn-darkmode { 
+                        margin-left: 10px; 
+                    }
+                    
+                    @media (max-width: 768px) {
+                        .sidebar {
+                            transform: translateX(-100%);
+                        }
+                        
+                        .sidebar.show {
+                            transform: translateX(0);
+                        }
+                        
+                        .main-content {
+                            margin-left: 0;
+                        }
+                    }
                 `;
                 theme.setAttribute('data-dark', '1');
                 localStorage.setItem('darkmode', '1');
             }
         }
-        // 自动加载暗色模式
+
+        // Auto-load dark mode
         window.onload = function() {
             if (localStorage.getItem('darkmode') === '1') {
                 toggleDarkMode();
             }
         }
 
-        // 导出账号
+        // Export accounts
         function exportAccounts() {
             fetch("/export_accounts")
             .then(r => r.json())
@@ -165,7 +798,8 @@
                 URL.revokeObjectURL(url);
             });
         }
-        // 导入账号
+
+        // Import accounts
         function importAccounts(input) {
             if (input.files.length == 0) return;
             const file = input.files[0];
@@ -183,7 +817,8 @@
             }
             reader.readAsText(file);
         }
-        // 批量删除
+
+        // Batch delete
         function deleteSelected() {
             const checked = Array.from(document.querySelectorAll('input[name="selected_users"]:checked')).map(e => e.value);
             if (checked.length == 0) { alert("请选择需要删除的账号"); return; }
@@ -198,13 +833,15 @@
                 else alert("批量删除失败：" + data.error);
             });
         }
-        // 全选
+
+        // Select all toggle
         function toggleSelectAll(box) {
             document.querySelectorAll('input[name="selected_users"]').forEach(e => {
                 e.checked = box.checked;
             });
         }
-        // 测试连接
+
+        // Test account connection
         function testAccount(user, btn) {
             btn.disabled = true;
             btn.textContent = "测试中...";

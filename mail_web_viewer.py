@@ -102,28 +102,39 @@ def admin():
             db.session.commit()
             return redirect(url_for("admin"))
     accounts = MailAccount.query.all()
-    return render_template("admin.html", accounts=accounts, error=error, username=session.get('username'))
+    admin_user = AdminUser.query.filter_by(username=session.get('username')).first()
+    return render_template("admin.html", accounts=accounts, error=error, username=session.get('username'), admin_user=admin_user)
 
-@app.route("/change_admin_pass", methods=['POST'])
-def change_admin_pass():
+@app.route("/change_admin_info", methods=['POST'])
+def change_admin_info():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
-    new_pass = request.form.get('new_password', '')
-    confirm_pass = request.form.get('confirm_password', '')
-    if not new_pass or not confirm_pass:
-        flash('请输入完整信息', 'danger')
-    elif new_pass != confirm_pass:
-        flash('两次密码输入不一致', 'danger')
-    elif len(new_pass) < 6:
-        flash('密码长度至少6位', 'danger')
+    new_username = request.form.get('new_username', '').strip()
+    new_password = request.form.get('new_password', '').strip()
+    confirm_password = request.form.get('confirm_password', '').strip()
+    user = AdminUser.query.filter_by(username=session.get('username')).first()
+    if not user:
+        flash('管理员账号不存在', 'danger')
     else:
-        user = AdminUser.query.filter_by(username=session.get('username')).first()
-        if user:
-            user.set_password(new_pass)
-            db.session.commit()
-            flash('密码修改成功', 'success')
-        else:
-            flash('管理员账号不存在', 'danger')
+        # 修改用户名
+        if new_username and new_username != user.username:
+            # 检查新用户名是否已存在
+            if AdminUser.query.filter_by(username=new_username).first():
+                flash('新用户名已存在', 'danger')
+            else:
+                user.username = new_username
+                session['username'] = new_username
+                flash('管理员账号修改成功', 'success')
+        # 修改密码
+        if new_password:
+            if new_password != confirm_password:
+                flash('两次密码输入不一致', 'danger')
+            elif len(new_password) < 6:
+                flash('密码长度至少6位', 'danger')
+            else:
+                user.set_password(new_password)
+                flash('管理员密码修改成功', 'success')
+        db.session.commit()
     return redirect(url_for('admin'))
 
 @app.route("/del_account", methods=["POST"])
@@ -158,7 +169,6 @@ def export_accounts():
     if not session.get('logged_in'):
         return jsonify([])
     accounts = MailAccount.query.all()
-    # 导出为和原来json一样格式
     return jsonify([
         {"name": a.name, "host": a.host, "user": a.user, "password": a.password}
         for a in accounts

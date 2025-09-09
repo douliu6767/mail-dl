@@ -581,8 +581,6 @@
                                         <select class="form-select" id="proxy-type" name="type" required>
                                             <option value="">请选择代理类型</option>
                                             <option value="HTTP">HTTP</option>
-                                            <option value="HTTPS">HTTPS</option>
-                                            <option value="SOCKS4">SOCKS4</option>
                                             <option value="SOCKS5">SOCKS5</option>
                                         </select>
                                     </div>
@@ -612,6 +610,66 @@
                                 <button type="button" class="btn btn-secondary" onclick="hideAddProxyModal()">取消</button>
                                 <button type="button" class="btn btn-primary" onclick="addProxy()">添加代理</button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 编辑代理模态框 -->
+            <div class="modal fade" id="editProxyModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">编辑代理</h5>
+                            <button type="button" class="btn-close" onclick="hideEditProxyModal()"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="editProxyForm">
+                                <input type="hidden" id="edit-proxy-id" name="proxy_id">
+                                <div class="mb-3">
+                                    <label for="edit-proxy-name" class="form-label">代理名称</label>
+                                    <input type="text" class="form-control" id="edit-proxy-name" name="name" placeholder="可选，默认自动生成">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="edit-proxy-type" class="form-label">代理类型 *</label>
+                                    <select class="form-select" id="edit-proxy-type" name="type" required>
+                                        <option value="">请选择代理类型</option>
+                                        <option value="HTTP">HTTP</option>
+                                        <option value="SOCKS5">SOCKS5</option>
+                                    </select>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <label for="edit-proxy-host" class="form-label">代理地址 *</label>
+                                        <input type="text" class="form-control" id="edit-proxy-host" name="host" placeholder="127.0.0.1" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="edit-proxy-port" class="form-label">端口 *</label>
+                                        <input type="number" class="form-control" id="edit-proxy-port" name="port" placeholder="1080" min="1" max="65535" required>
+                                    </div>
+                                </div>
+                                <div class="row mt-3">
+                                    <div class="col-md-6">
+                                        <label for="edit-proxy-username" class="form-label">用户名</label>
+                                        <input type="text" class="form-control" id="edit-proxy-username" name="username" placeholder="可选">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="edit-proxy-password" class="form-label">密码</label>
+                                        <input type="password" class="form-control" id="edit-proxy-password" name="password" placeholder="可选">
+                                    </div>
+                                </div>
+                                <div class="mb-3 mt-3">
+                                    <label for="edit-proxy-status" class="form-label">状态</label>
+                                    <select class="form-select" id="edit-proxy-status" name="status">
+                                        <option value="active">活跃</option>
+                                        <option value="inactive">停用</option>
+                                    </select>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" onclick="hideEditProxyModal()">取消</button>
+                            <button type="button" class="btn btn-primary" onclick="updateProxy()">保存更改</button>
                         </div>
                     </div>
                 </div>
@@ -732,30 +790,114 @@
             </div>
 
             <div id="inbox-logs" class="content-section {% if active_section == 'inbox-logs' %}active{% endif %}">
+                <!-- 日志搜索过滤 -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <input type="text" class="form-control" id="email-log-search" placeholder="搜索邮箱账号...">
+                            </div>
+                            <div class="col-md-3">
+                                <input type="text" class="form-control" id="card-log-search" placeholder="搜索卡密编号...">
+                            </div>
+                            <div class="col-md-2">
+                                <input type="date" class="form-control" id="log-date-filter">
+                            </div>
+                            <div class="col-md-2">
+                                <select class="form-select" id="log-success-filter">
+                                    <option value="">全部</option>
+                                    <option value="true">成功</option>
+                                    <option value="false">失败</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-primary" onclick="searchEmailLogs()">搜索</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 收件日志列表 -->
                 <div class="card">
                     <div class="card-header">
                         <i class="bi bi-list-ul"></i> 收件日志
                     </div>
                     <div class="card-body">
-                        <div class="text-center py-5">
-                            <i class="bi bi-list-ul display-1 text-muted"></i>
-                            <h4 class="mt-3">收件日志功能</h4>
-                            <p class="text-muted">此功能正在开发中，敬请期待...</p>
+                        <div class="table-responsive">
+                            <table class="table table-striped align-middle" id="email-logs-table">
+                                <thead>
+                                    <tr>
+                                        <th>时间</th>
+                                        <th>邮箱账号</th>
+                                        <th>卡密</th>
+                                        <th>发件人</th>
+                                        <th>邮件主题</th>
+                                        <th>验证码</th>
+                                        <th>状态</th>
+                                        <th>IP地址</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- 日志数据将通过JavaScript动态加载 -->
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
             </div>
 
             <div id="card-logs" class="content-section {% if active_section == 'card-logs' %}active{% endif %}">
+                <!-- 卡密日志搜索过滤 -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <input type="text" class="form-control" id="card-usage-search" placeholder="搜索卡密编号...">
+                            </div>
+                            <div class="col-md-3">
+                                <input type="text" class="form-control" id="card-ip-search" placeholder="搜索IP地址...">
+                            </div>
+                            <div class="col-md-2">
+                                <input type="date" class="form-control" id="card-log-date-filter">
+                            </div>
+                            <div class="col-md-2">
+                                <select class="form-select" id="card-action-filter">
+                                    <option value="">全部操作</option>
+                                    <option value="access">访问</option>
+                                    <option value="use">使用</option>
+                                    <option value="verify">验证</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-primary" onclick="searchCardLogs()">搜索</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 卡密日志列表 -->
                 <div class="card">
                     <div class="card-header">
                         <i class="bi bi-journal-text"></i> 卡密日志
                     </div>
                     <div class="card-body">
-                        <div class="text-center py-5">
-                            <i class="bi bi-journal-text display-1 text-muted"></i>
-                            <h4 class="mt-3">卡密日志功能</h4>
-                            <p class="text-muted">此功能正在开发中，敬请期待...</p>
+                        <div class="table-responsive">
+                            <table class="table table-striped align-middle" id="card-logs-table">
+                                <thead>
+                                    <tr>
+                                        <th>时间</th>
+                                        <th>卡密编号</th>
+                                        <th>操作类型</th>
+                                        <th>IP地址</th>
+                                        <th>用户代理</th>
+                                        <th>状态</th>
+                                        <th>错误信息</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- 卡密日志数据将通过JavaScript动态加载 -->
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -1655,6 +1797,425 @@
                 });
             }
         });
+        
+        // Card management functions
+        function showAddCardModal() {
+            const modal = document.getElementById('addCardModal');
+            modal.style.display = 'block';
+            modal.classList.add('show');
+        }
+        
+        function hideAddCardModal() {
+            const modal = document.getElementById('addCardModal');
+            modal.style.display = 'none';
+            modal.classList.remove('show');
+            document.getElementById('add-card-form').reset();
+        }
+        
+        function showEditCardModal() {
+            const modal = document.getElementById('editCardModal');
+            modal.style.display = 'block';
+            modal.classList.add('show');
+        }
+        
+        function hideEditCardModal() {
+            const modal = document.getElementById('editCardModal');
+            modal.style.display = 'none';
+            modal.classList.remove('show');
+            document.getElementById('edit-card-form').reset();
+        }
+        
+        function showImportCardModal() {
+            const modal = document.getElementById('importCardModal');
+            modal.style.display = 'block';
+            modal.classList.add('show');
+        }
+        
+        function hideImportCardModal() {
+            const modal = document.getElementById('importCardModal');
+            modal.style.display = 'none';
+            modal.classList.remove('show');
+            document.getElementById('import-card-text').value = '';
+            document.getElementById('import-card-file').value = '';
+        }
+        
+        function generateCardCode() {
+            const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let result = '';
+            for (let i = 0; i < 12; i++) {
+                result += characters.charAt(Math.floor(Math.random() * characters.length));
+            }
+            document.getElementById('card-code').value = result;
+        }
+        
+        function loadCards() {
+            const search = document.getElementById('card-search').value;
+            const status = document.getElementById('card-status-filter').value;
+            
+            fetch(`/cards?search=${encodeURIComponent(search)}&status=${encodeURIComponent(status)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateCardsTable(data.cards);
+                    } else {
+                        showAlert(data.error, 'danger');
+                    }
+                })
+                .catch(error => {
+                    showAlert('加载卡密列表失败：' + error.message, 'danger');
+                });
+        }
+        
+        function updateCardsTable(cards) {
+            const tbody = document.querySelector('#cards-table tbody');
+            tbody.innerHTML = '';
+            
+            cards.forEach(card => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><input type="checkbox" name="selected_cards" value="${card.id}"></td>
+                    <td>${card.code}</td>
+                    <td>${card.name || '-'}</td>
+                    <td>${card.usage_limit}</td>
+                    <td>${card.usage_count}</td>
+                    <td><span class="badge bg-${getStatusColor(card.status)}">${getStatusText(card.status)}</span></td>
+                    <td>${card.expires_at ? new Date(card.expires_at).toLocaleString() : '永不过期'}</td>
+                    <td><a href="${card.access_link}" target="_blank" class="btn btn-sm btn-outline-primary">访问链接</a></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" onclick="editCard(${card.id})">编辑</button>
+                        <button class="btn btn-sm btn-outline-danger ms-1" onclick="deleteCard(${card.id})">删除</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        function getStatusColor(status) {
+            const colors = {
+                'active': 'success',
+                'used_up': 'warning',
+                'expired': 'danger'
+            };
+            return colors[status] || 'secondary';
+        }
+        
+        function getStatusText(status) {
+            const texts = {
+                'active': '可用',
+                'used_up': '已用完',
+                'expired': '已过期'
+            };
+            return texts[status] || status;
+        }
+        
+        function searchCards() {
+            loadCards();
+        }
+        
+        function addCard() {
+            const formData = new FormData(document.getElementById('add-card-form'));
+            
+            fetch('/cards', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    hideAddCardModal();
+                    loadCards();
+                } else {
+                    showAlert(data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                showAlert('添加失败：' + error.message, 'danger');
+            });
+        }
+        
+        function editCard(cardId) {
+            // First get card details
+            fetch(`/cards?search=&status=`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const card = data.cards.find(c => c.id === cardId);
+                        if (card) {
+                            document.getElementById('edit-card-id').value = card.id;
+                            document.getElementById('edit-card-code').value = card.code;
+                            document.getElementById('edit-card-name').value = card.name || '';
+                            document.getElementById('edit-card-usage-limit').value = card.usage_limit;
+                            document.getElementById('edit-card-status').value = card.status;
+                            document.getElementById('edit-card-expires-at').value = card.expires_at ? 
+                                new Date(card.expires_at).toISOString().slice(0, 16) : '';
+                            showEditCardModal();
+                        }
+                    }
+                });
+        }
+        
+        function updateCard() {
+            const formData = new FormData(document.getElementById('edit-card-form'));
+            
+            fetch('/cards/update', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    hideEditCardModal();
+                    loadCards();
+                } else {
+                    showAlert(data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                showAlert('更新失败：' + error.message, 'danger');
+            });
+        }
+        
+        function deleteCard(cardId) {
+            if (!confirm('确认删除该卡密？')) return;
+            
+            fetch(`/cards/${cardId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    loadCards();
+                } else {
+                    showAlert(data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                showAlert('删除失败：' + error.message, 'danger');
+            });
+        }
+        
+        function deleteSelectedCards() {
+            const selected = Array.from(document.querySelectorAll('input[name="selected_cards"]:checked'))
+                .map(cb => parseInt(cb.value));
+            
+            if (selected.length === 0) {
+                showAlert('请选择要删除的卡密', 'warning');
+                return;
+            }
+            
+            if (!confirm(`确认删除 ${selected.length} 个卡密？`)) return;
+            
+            fetch('/cards/batch_delete', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ids: selected})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    loadCards();
+                } else {
+                    showAlert(data.error, 'danger');
+                }
+            });
+        }
+        
+        function importCards() {
+            const cardsText = document.getElementById('import-card-text').value;
+            if (!cardsText.trim()) {
+                showAlert('请输入要导入的卡密数据', 'warning');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('cards_text', cardsText);
+            
+            fetch('/cards/import', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    hideImportCardModal();
+                    loadCards();
+                } else {
+                    showAlert(data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                showAlert('导入失败：' + error.message, 'danger');
+            });
+        }
+        
+        function exportCards() {
+            fetch('/cards/export')
+                .then(response => response.json())
+                .then(data => {
+                    const csv = [
+                        ['编号', '名称', '可用次数', '已用次数', '状态', '过期时间', '访问链接', '创建时间'],
+                        ...data.map(card => [
+                            card.code,
+                            card.name,
+                            card.usage_limit,
+                            card.usage_count,
+                            card.status,
+                            card.expires_at,
+                            card.access_link,
+                            card.created_at
+                        ])
+                    ].map(row => row.join(',')).join('\n');
+                    
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'cards_export.csv';
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                })
+                .catch(error => {
+                    showAlert('导出失败：' + error.message, 'danger');
+                });
+        }
+        
+        function toggleSelectAllCards(checkbox) {
+            const checkboxes = document.querySelectorAll('input[name="selected_cards"]');
+            checkboxes.forEach(cb => cb.checked = checkbox.checked);
+        }
+        
+        // Auto-load cards when card management section is shown
+        document.addEventListener('DOMContentLoaded', function() {
+            const cardManagementLink = document.querySelector('[data-section="card-management"]');
+            if (cardManagementLink) {
+                cardManagementLink.addEventListener('click', function() {
+                    setTimeout(loadCards, 100);
+                });
+            }
+            
+            // Auto-load logs when sections are shown
+            const inboxLogsLink = document.querySelector('[data-section="inbox-logs"]');
+            if (inboxLogsLink) {
+                inboxLogsLink.addEventListener('click', function() {
+                    setTimeout(loadEmailLogs, 100);
+                });
+            }
+            
+            const cardLogsLink = document.querySelector('[data-section="card-logs"]');
+            if (cardLogsLink) {
+                cardLogsLink.addEventListener('click', function() {
+                    setTimeout(loadCardLogs, 100);
+                });
+            }
+        });
+        
+        // Email logs functions
+        function loadEmailLogs() {
+            const emailSearch = document.getElementById('email-log-search').value;
+            const cardSearch = document.getElementById('card-log-search').value;
+            const dateFilter = document.getElementById('log-date-filter').value;
+            const successFilter = document.getElementById('log-success-filter').value;
+            
+            const params = new URLSearchParams({
+                email: emailSearch,
+                card: cardSearch,
+                date: dateFilter,
+                success: successFilter
+            });
+            
+            fetch(`/email_logs?${params}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateEmailLogsTable(data.logs);
+                    } else {
+                        showAlert(data.error, 'danger');
+                    }
+                })
+                .catch(error => {
+                    showAlert('加载收件日志失败：' + error.message, 'danger');
+                });
+        }
+        
+        function updateEmailLogsTable(logs) {
+            const tbody = document.querySelector('#email-logs-table tbody');
+            tbody.innerHTML = '';
+            
+            logs.forEach(log => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${new Date(log.created_at).toLocaleString()}</td>
+                    <td>${log.email_account_user || '-'}</td>
+                    <td>${log.card_code || '-'}</td>
+                    <td>${log.sender || '-'}</td>
+                    <td>${log.subject || '-'}</td>
+                    <td>${log.verification_code || '-'}</td>
+                    <td><span class="badge bg-${log.success ? 'success' : 'danger'}">${log.success ? '成功' : '失败'}</span></td>
+                    <td>${log.ip_address || '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        function searchEmailLogs() {
+            loadEmailLogs();
+        }
+        
+        // Card logs functions
+        function loadCardLogs() {
+            const cardSearch = document.getElementById('card-usage-search').value;
+            const ipSearch = document.getElementById('card-ip-search').value;
+            const dateFilter = document.getElementById('card-log-date-filter').value;
+            const actionFilter = document.getElementById('card-action-filter').value;
+            
+            const params = new URLSearchParams({
+                card: cardSearch,
+                ip: ipSearch,
+                date: dateFilter,
+                action: actionFilter
+            });
+            
+            fetch(`/card_logs?${params}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateCardLogsTable(data.logs);
+                    } else {
+                        showAlert(data.error, 'danger');
+                    }
+                })
+                .catch(error => {
+                    showAlert('加载卡密日志失败：' + error.message, 'danger');
+                });
+        }
+        
+        function updateCardLogsTable(logs) {
+            const tbody = document.querySelector('#card-logs-table tbody');
+            tbody.innerHTML = '';
+            
+            logs.forEach(log => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${new Date(log.created_at).toLocaleString()}</td>
+                    <td>${log.card_code}</td>
+                    <td>${log.action}</td>
+                    <td>${log.ip_address}</td>
+                    <td>${log.user_agent || '-'}</td>
+                    <td><span class="badge bg-${log.success ? 'success' : 'danger'}">${log.success ? '成功' : '失败'}</span></td>
+                    <td>${log.error_message || '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        function searchCardLogs() {
+            loadCardLogs();
+        }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>

@@ -744,6 +744,60 @@ def edit_proxy(proxy_id):
         db.session.rollback()
         return jsonify({"success": False, "error": str(e)})
 
+@app.route("/proxies/update", methods=["POST"])
+def update_proxy_form():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    try:
+        proxy_id = request.form.get('proxy_id')
+        proxy = Proxy.query.get(proxy_id)
+        if not proxy:
+            return jsonify({"success": False, "error": "代理不存在"})
+        
+        proxy_type = request.form.get('type', '').upper()
+        if proxy_type not in ["HTTP", "SOCKS5"]:
+            return jsonify({"success": False, "error": "仅支持 HTTP 和 SOCKS5 类型的代理"})
+        
+        host = request.form.get('host', '').strip()
+        port = request.form.get('port')
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+        name = request.form.get('name', '').strip()
+        status = request.form.get('status', 'active')
+        
+        if not (proxy_type and host and port):
+            return jsonify({"success": False, "error": "请填写完整的代理信息"})
+        
+        try:
+            port = int(port)
+            if port < 1 or port > 65535:
+                raise ValueError("端口范围无效")
+        except ValueError:
+            return jsonify({"success": False, "error": "端口必须是1-65535之间的数字"})
+        
+        # 检查是否与其他代理冲突（排除自己）
+        existing_proxy = Proxy.query.filter(
+            and_(Proxy.host == host, Proxy.port == port, Proxy.id != proxy_id)
+        ).first()
+        if existing_proxy:
+            return jsonify({"success": False, "error": "该代理地址已被其他代理使用"})
+        
+        # 更新代理信息
+        proxy.name = name or f"{proxy_type}://{host}:{port}"
+        proxy.type = proxy_type
+        proxy.host = host
+        proxy.port = port
+        proxy.username = username
+        proxy.password = password
+        proxy.status = status
+        proxy.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        return jsonify({"success": True, "message": "代理更新成功"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": f"更新失败：{str(e)}"})
+
 @app.route("/proxies/<int:proxy_id>", methods=["DELETE"])
 def delete_proxy(proxy_id):
     if not session.get('logged_in'):
@@ -1426,6 +1480,610 @@ def update_admin_account():
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "error": f"更新失败：{str(e)}"})
+
+# Card management routes
+@app.route("/cards", methods=["GET"])
+def list_cards():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    search = request.args.get('search', '')
+    status = request.args.get('status', '')
+    
+    query = Card.query
+    
+    if search:
+        query = query.filter(
+            or_(Card.code.like(f'%{search}%'), Card.name.like(f'%{search}%'))
+        )
+    
+    if status:
+        query = query.filter(Card.status == status)
+    
+    cards = query.order_by(Card.created_at.desc()).all()
+    return jsonify({"success": True, "cards": [card.to_dict() for card in cards]})
+
+@app.route("/cards", methods=["POST"])
+def add_card():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        code = request.form.get('code')
+        name = request.form.get('name', '')
+        usage_limit = int(request.form.get('usage_limit', 1))
+        expires_at = request.form.get('expires_at')
+        
+        if not code:
+            return jsonify({"success": False, "error": "卡密编号不能为空"})
+        
+        # Check if card already exists
+        if Card.query.filter_by(code=code).first():
+            return jsonify({"success": False, "error": "该卡密编号已存在"})
+        
+        # Parse expiration date
+        expires_at_date = None
+        if expires_at:
+            try:
+                from datetime import datetime
+                expires_at_date = datetime.fromisoformat(expires_at)
+            except ValueError:
+                return jsonify({"success": False, "error": "过期时间格式错误"})
+        
+        # Generate access link
+        import uuid
+        access_link = f"/card_access/{uuid.uuid4().hex}"
+        
+        new_card = Card(
+            code=code,
+            name=name,
+            usage_limit=usage_limit,
+            expires_at=expires_at_date,
+            access_link=access_link
+        )
+        
+        db.session.add(new_card)
+        db.session.commit()
+        
+        return jsonify({"success": True, "message": "卡密添加成功", "card": new_card.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": f"添加失败：{str(e)}"})
+
+@app.route("/cards/update", methods=["POST"])
+def update_card():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        card_id = request.form.get('card_id')
+        card = Card.query.get(card_id)
+        if not card:
+            return jsonify({"success": False, "error": "卡密不存在"})
+        
+        card.code = request.form.get('code', card.code)
+        card.name = request.form.get('name', card.name)
+        card.usage_limit = int(request.form.get('usage_limit', card.usage_limit))
+        card.status = request.form.get('status', card.status)
+        
+        expires_at = request.form.get('expires_at')
+        if expires_at:
+            try:
+                from datetime import datetime
+                card.expires_at = datetime.fromisoformat(expires_at)
+            except ValueError:
+                return jsonify({"success": False, "error": "过期时间格式错误"})
+        else:
+            card.expires_at = None
+        
+        card.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        return jsonify({"success": True, "message": "卡密更新成功", "card": card.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": f"更新失败：{str(e)}"})
+
+@app.route("/cards/<int:card_id>", methods=["PUT"])
+def update_card_route():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        card_id = request.form.get('card_id')
+        card = Card.query.get(card_id)
+        if not card:
+            return jsonify({"success": False, "error": "卡密不存在"})
+        
+        card.code = request.form.get('code', card.code)
+        card.name = request.form.get('name', card.name)
+        card.usage_limit = int(request.form.get('usage_limit', card.usage_limit))
+        card.status = request.form.get('status', card.status)
+        
+        expires_at = request.form.get('expires_at')
+        if expires_at:
+            try:
+                from datetime import datetime
+                card.expires_at = datetime.fromisoformat(expires_at)
+            except ValueError:
+                return jsonify({"success": False, "error": "过期时间格式错误"})
+        else:
+            card.expires_at = None
+        
+        card.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        return jsonify({"success": True, "message": "卡密更新成功", "card": card.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": f"更新失败：{str(e)}"})
+
+@app.route("/cards/<int:card_id>", methods=["DELETE"])
+def delete_card(card_id):
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        card = Card.query.get(card_id)
+        if not card:
+            return jsonify({"success": False, "error": "卡密不存在"})
+        
+        db.session.delete(card)
+        db.session.commit()
+        
+        return jsonify({"success": True, "message": "卡密删除成功"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": f"删除失败：{str(e)}"})
+
+@app.route("/cards/batch_delete", methods=["POST"])
+def batch_delete_cards():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        card_ids = request.json.get("ids", [])
+        Card.query.filter(Card.id.in_(card_ids)).delete(synchronize_session=False)
+        db.session.commit()
+        return jsonify({"success": True, "message": "批量删除成功"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route("/cards/import", methods=["POST"])
+def import_cards():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        cards_text = request.form.get('cards_text', '')
+        if not cards_text:
+            return jsonify({"success": False, "error": "没有提供卡密数据"})
+        
+        lines = cards_text.strip().split('\n')
+        added_count = 0
+        errors = []
+        
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+            if not line:
+                continue
+            
+            parts = line.split(',')
+            if len(parts) < 1:
+                errors.append(f"第{line_num}行格式错误")
+                continue
+            
+            code = parts[0].strip()
+            name = parts[1].strip() if len(parts) > 1 else ''
+            usage_limit = int(parts[2].strip()) if len(parts) > 2 and parts[2].strip().isdigit() else 1
+            expires_at = None
+            
+            if len(parts) > 3 and parts[3].strip():
+                try:
+                    from datetime import datetime
+                    expires_at = datetime.fromisoformat(parts[3].strip())
+                except ValueError:
+                    errors.append(f"第{line_num}行过期时间格式错误")
+                    continue
+            
+            # Check if card already exists
+            if Card.query.filter_by(code=code).first():
+                errors.append(f"第{line_num}行卡密编号已存在: {code}")
+                continue
+            
+            # Generate access link
+            import uuid
+            access_link = f"/card_access/{uuid.uuid4().hex}"
+            
+            new_card = Card(
+                code=code,
+                name=name,
+                usage_limit=usage_limit,
+                expires_at=expires_at,
+                access_link=access_link
+            )
+            
+            db.session.add(new_card)
+            added_count += 1
+        
+        db.session.commit()
+        
+        result_message = f"成功导入 {added_count} 个卡密"
+        if errors:
+            result_message += f"，{len(errors)} 个错误：" + "; ".join(errors[:5])
+            if len(errors) > 5:
+                result_message += "..."
+        
+        return jsonify({"success": True, "message": result_message})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": f"导入失败：{str(e)}"})
+
+@app.route("/cards/export", methods=["GET"])
+def export_cards():
+    if not session.get('logged_in'):
+        return jsonify([])
+    
+    cards = Card.query.all()
+    export_data = []
+    for card in cards:
+        export_data.append({
+            'code': card.code,
+            'name': card.name,
+            'usage_limit': card.usage_limit,
+            'usage_count': card.usage_count,
+            'status': card.status,
+            'expires_at': card.expires_at.isoformat() if card.expires_at else '',
+            'access_link': card.access_link,
+            'created_at': card.created_at.isoformat() if card.created_at else ''
+        })
+    
+    return jsonify(export_data)
+
+# Email and Card logging routes
+@app.route("/email_logs", methods=["GET"])
+def get_email_logs():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    email_search = request.args.get('email', '')
+    card_search = request.args.get('card', '')
+    date_filter = request.args.get('date', '')
+    success_filter = request.args.get('success', '')
+    
+    query = EmailLog.query
+    
+    if email_search:
+        query = query.join(EmailAccount).filter(EmailAccount.user.like(f'%{email_search}%'))
+    
+    if card_search:
+        query = query.join(Card).filter(Card.code.like(f'%{card_search}%'))
+    
+    if date_filter:
+        try:
+            from datetime import datetime, date
+            filter_date = datetime.strptime(date_filter, '%Y-%m-%d').date()
+            query = query.filter(db.func.date(EmailLog.created_at) == filter_date)
+        except ValueError:
+            pass
+    
+    if success_filter:
+        query = query.filter(EmailLog.success == (success_filter.lower() == 'true'))
+    
+    logs = query.order_by(EmailLog.created_at.desc()).limit(1000).all()
+    
+    result = []
+    for log in logs:
+        log_dict = log.to_dict()
+        if log.email_account:
+            log_dict['email_account_user'] = log.email_account.user
+        if log.card:
+            log_dict['card_code'] = log.card.code
+        result.append(log_dict)
+    
+    return jsonify({"success": True, "logs": result})
+
+@app.route("/card_logs", methods=["GET"])
+def get_card_logs():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    card_search = request.args.get('card', '')
+    ip_search = request.args.get('ip', '')
+    date_filter = request.args.get('date', '')
+    action_filter = request.args.get('action', '')
+    
+    query = CardLog.query
+    
+    if card_search:
+        query = query.filter(CardLog.card_code.like(f'%{card_search}%'))
+    
+    if ip_search:
+        query = query.filter(CardLog.ip_address.like(f'%{ip_search}%'))
+    
+    if date_filter:
+        try:
+            from datetime import datetime, date
+            filter_date = datetime.strptime(date_filter, '%Y-%m-%d').date()
+            query = query.filter(db.func.date(CardLog.created_at) == filter_date)
+        except ValueError:
+            pass
+    
+    if action_filter:
+        query = query.filter(CardLog.action == action_filter)
+    
+    logs = query.order_by(CardLog.created_at.desc()).limit(1000).all()
+    return jsonify({"success": True, "logs": [log.to_dict() for log in logs]})
+
+# Card access routes for frontend users
+@app.route("/card_access/<access_token>", methods=["GET", "POST"])
+def card_access(access_token):
+    access_link = f"/card_access/{access_token}"
+    card = Card.query.filter_by(access_link=access_link).first()
+    
+    client_ip = request.remote_addr
+    user_agent = request.headers.get('User-Agent', '')
+    
+    # Log the access attempt
+    if card:
+        card_log = CardLog(
+            card_id=card.id,
+            card_code=card.code,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            action='access',
+            success=True
+        )
+        db.session.add(card_log)
+    else:
+        # Log failed access attempt
+        card_log = CardLog(
+            card_id=None,
+            card_code='Unknown',
+            ip_address=client_ip,
+            user_agent=user_agent,
+            action='access',
+            success=False,
+            error_message='Invalid access token'
+        )
+        db.session.add(card_log)
+        db.session.commit()
+        return render_template('card_error.html', error="无效的访问链接")
+    
+    # Check card validity
+    if card.status != 'active':
+        card_log.success = False
+        card_log.error_message = f'Card status: {card.status}'
+        db.session.commit()
+        if card.status == 'used_up':
+            return render_template('card_error.html', error="卡密已用完")
+        elif card.status == 'expired':
+            return render_template('card_error.html', error="卡密已过期")
+        else:
+            return render_template('card_error.html', error="卡密不可用")
+    
+    # Check if card is expired
+    from datetime import datetime
+    if card.expires_at and datetime.utcnow() > card.expires_at:
+        card.status = 'expired'
+        card_log.success = False
+        card_log.error_message = 'Card expired'
+        db.session.commit()
+        return render_template('card_error.html', error="卡密已过期")
+    
+    # Check usage limit
+    if card.usage_count >= card.usage_limit:
+        card.status = 'used_up'
+        card_log.success = False
+        card_log.error_message = 'Usage limit exceeded'
+        db.session.commit()
+        return render_template('card_error.html', error="卡密已用完")
+    
+    db.session.commit()
+    
+    if request.method == 'POST':
+        email_user = request.form.get('user')
+        if not email_user:
+            return render_template('card_access.html', card=card, error="请输入邮箱地址")
+        
+        # Find email account
+        account = EmailAccount.query.filter_by(user=email_user).first()
+        if not account:
+            # Log failed attempt but don't deduct usage
+            email_log = EmailLog(
+                email_account_id=None,
+                card_id=card.id,
+                ip_address=client_ip,
+                user_agent=user_agent,
+                success=False,
+                error_message="邮箱不存在，获取失败"
+            )
+            db.session.add(email_log)
+            
+            card_log = CardLog(
+                card_id=card.id,
+                card_code=card.code,
+                ip_address=client_ip,
+                user_agent=user_agent,
+                action='use',
+                success=False,
+                error_message="邮箱不存在"
+            )
+            db.session.add(card_log)
+            db.session.commit()
+            
+            return render_template('card_access.html', card=card, error="邮箱不存在，获取失败")
+        
+        # Check proxy availability
+        proxy_info = get_available_proxy()
+        if not proxy_info:
+            # Log failed attempt but don't deduct usage
+            email_log = EmailLog(
+                email_account_id=account.id,
+                card_id=card.id,
+                ip_address=client_ip,
+                user_agent=user_agent,
+                success=False,
+                error_message="暂无可用代理"
+            )
+            db.session.add(email_log)
+            db.session.commit()
+            
+            return render_template('card_access.html', card=card, error="暂无可用代理，请稍后再试")
+        
+        # Attempt to get email (same logic as getmail route but with card validation)
+        try:
+            # Get email content using the same logic as in getmail route
+            result = get_email_content(account, proxy_info)
+            
+            if 'error' in result:
+                # Log failed attempt but don't deduct usage
+                email_log = EmailLog(
+                    email_account_id=account.id,
+                    card_id=card.id,
+                    ip_address=client_ip,
+                    user_agent=user_agent,
+                    success=False,
+                    error_message=result['error']
+                )
+                db.session.add(email_log)
+                db.session.commit()
+                
+                return render_template('card_access.html', card=card, error=result['error'])
+            else:
+                # Success - deduct usage and log
+                card.usage_count += 1
+                if card.usage_count >= card.usage_limit:
+                    card.status = 'used_up'
+                
+                email_log = EmailLog(
+                    email_account_id=account.id,
+                    card_id=card.id,
+                    sender=result.get('sender', ''),
+                    subject=result.get('subject', ''),
+                    body_preview=result.get('body', '')[:500],
+                    verification_code=result.get('code', ''),
+                    ip_address=client_ip,
+                    user_agent=user_agent,
+                    success=True
+                )
+                db.session.add(email_log)
+                
+                card_log = CardLog(
+                    card_id=card.id,
+                    card_code=card.code,
+                    ip_address=client_ip,
+                    user_agent=user_agent,
+                    action='use',
+                    success=True
+                )
+                db.session.add(card_log)
+                
+                db.session.commit()
+                
+                return render_template('card_access.html', card=card, 
+                                     subject=result['subject'], body=result['body'], 
+                                     code=result.get('code'), success=True)
+        
+        except Exception as e:
+            # Log failed attempt but don't deduct usage
+            email_log = EmailLog(
+                email_account_id=account.id,
+                card_id=card.id,
+                ip_address=client_ip,
+                user_agent=user_agent,
+                success=False,
+                error_message=str(e)
+            )
+            db.session.add(email_log)
+            db.session.commit()
+            
+            return render_template('card_access.html', card=card, error=f"获取邮件失败: {str(e)}")
+    
+    # GET request - show the card access form
+    return render_template('card_access.html', card=card)
+
+def get_email_content(account, proxy_info):
+    """Extract email getting logic into a separate function"""
+    try:
+        # Same email retrieval logic as in getmail route
+        protocol = account.protocol
+        port = account.port
+        ssl = account.ssl
+        host = account.host
+        
+        if protocol == "IMAP":
+            from imapclient import IMAPClient
+            import email
+            
+            # Set up proxy
+            try:
+                import socks
+                import socket
+                if proxy_info["type"] == "SOCKS5":
+                    if proxy_info.get("username") and proxy_info.get("password"):
+                        socks.set_default_proxy(socks.SOCKS5, proxy_info["host"], proxy_info["port"], 
+                                              username=proxy_info["username"], password=proxy_info["password"])
+                    else:
+                        socks.set_default_proxy(socks.SOCKS5, proxy_info["host"], proxy_info["port"])
+                elif proxy_info["type"] == "HTTP":
+                    return {"error": "HTTP代理暂不支持IMAP连接，请使用SOCKS5代理"}
+                
+                socket.socket = socks.socksocket
+            except ImportError:
+                return {"error": "缺少 PySocks 模块，请安装后重试"}
+            except Exception as e:
+                return {"error": f"代理设置失败: {str(e)}"}
+            
+            with IMAPClient(host, port=port, ssl=ssl) as server:
+                server.login(account.user, account.password)
+                server.select_folder("INBOX")
+                messages = server.search('ALL')
+                if not messages:
+                    return {"subject": "无邮件", "body": "邮箱为空。"}
+                
+                latest_uid = messages[-1]
+                raw_message = server.fetch([latest_uid], ['RFC822'])[latest_uid][b'RFC822']
+                msg = email.message_from_bytes(raw_message)
+                subject = email.header.make_header(email.header.decode_header(msg.get("Subject", "")))
+                sender = msg.get("From", "")
+                body = ""
+                
+                if msg.is_multipart():
+                    for part in msg.walk():
+                        if part.get_content_type() == "text/plain":
+                            text = part.get_payload(decode=True)
+                            if text:
+                                body += text.decode(errors="ignore")
+                else:
+                    text = msg.get_payload(decode=True)
+                    if text:
+                        body = text.decode(errors="ignore")
+                
+                code_match = re.search(CODE_REGEX, body)
+                code = code_match.group(1) if code_match else ""
+                
+                return {
+                    "subject": str(subject),
+                    "body": body,
+                    "sender": sender,
+                    "code": code
+                }
+        else:
+            # POP3 implementation would go here
+            return {"error": "POP3 protocol not yet supported for card access"}
+    
+    except Exception as e:
+        return {"error": f"邮件获取失败: {str(e)}"}
+    finally:
+        # Reset socket
+        try:
+            import socket
+            import socks
+            socket.socket = socks.socksocket.__bases__[0]
+        except:
+            pass
 
 @app.route("/get_logo")
 @app.route("/get_logo")

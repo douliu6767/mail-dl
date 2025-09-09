@@ -55,18 +55,11 @@
             {% endif %}
         </div>
         
-        <form id="cardMailForm">
-            <input type="hidden" name="access_token" value="{{ access_token }}">
+        <form method="post">
             <div class="mb-3">
                 <label for="user" class="form-label">输入邮箱账号</label>
                 <input type="email" class="form-control" name="user" id="user" 
                        placeholder="请输入邮箱地址..." required>
-                <div class="form-text">
-                    支持的邮箱: 
-                    {% for account in accounts %}
-                        <span class="badge bg-secondary">{{ account }}</span>
-                    {% endfor %}
-                </div>
             </div>
             <div class="text-center">
                 <button type="submit" class="btn btn-primary">
@@ -74,63 +67,25 @@
                 </button>
             </div>
         </form>
-        <div id="result"></div>
+        
+        {% if error %}
+        <div class="alert alert-danger mt-4">
+            <strong>❌ 错误：</strong> {{ error }}
+        </div>
+        {% endif %}
+        
+        {% if success %}
+        <div class="alert alert-success mt-4">
+            <strong>📧 主题：</strong> {{ subject }}<br><br>
+            <strong>📄 内容：</strong>
+            <pre class="mt-2 p-2 bg-light border rounded" style="max-height: 600px; overflow-y: auto; line-height: 1.6;">{{ body }}</pre>
+            {% if code %}
+            <div class="mt-3 p-3 bg-warning-subtle border border-warning rounded text-center">
+                <strong>🔐 验证码：{{ code }}</strong>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
-    
-    <script>
-        document.getElementById('cardMailForm').onsubmit = async function(e) {
-            e.preventDefault();
-            
-            const submitBtn = this.querySelector('button[type="submit"]');
-            const resultDiv = document.getElementById('result');
-            
-            // 显示加载状态
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 获取中...';
-            
-            try {
-                let formData = new FormData(this);
-                let resp = await fetch('/card_getmail', {
-                    method: 'POST',
-                    body: formData
-                });
-                let data = await resp.json();
-                
-                resultDiv.style.display = 'block';
-                resultDiv.className = 'mt-4 p-3 border rounded';
-                
-                if(data.error) {
-                    resultDiv.classList.add('border-danger', 'bg-danger-subtle');
-                    resultDiv.innerHTML = `<strong>❌ 错误：</strong> ${data.error}`;
-                    
-                    // 如果是卡密用完，刷新页面显示状态
-                    if(data.error.includes('已用完') || data.error.includes('已过期')) {
-                        setTimeout(() => location.reload(), 2000);
-                    }
-                } else {
-                    resultDiv.classList.add('border-success', 'bg-success-subtle');
-                    let content = `<strong>📧 主题：</strong> ${data.subject}<br><br>`;
-                    content += `<strong>📄 内容：</strong><pre class="mt-2 p-2 bg-light border rounded" style="max-height: 300px; overflow-y: auto;">${data.body}</pre>`;
-                    
-                    if(data.code) {
-                        content += `<div class="mt-3 p-3 bg-warning-subtle border border-warning rounded text-center"><strong>🔐 验证码：${data.code}</strong></div>`;
-                    }
-                    
-                    resultDiv.innerHTML = content;
-                    
-                    // 刷新页面以显示最新的使用次数
-                    setTimeout(() => location.reload(), 3000);
-                }
-            } catch (error) {
-                resultDiv.style.display = 'block';
-                resultDiv.className = 'mt-4 p-3 border border-danger bg-danger-subtle rounded';
-                resultDiv.innerHTML = `<strong>❌ 错误：</strong> 网络请求失败，请稍后重试`;
-            } finally {
-                // 恢复按钮状态
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '🔓 使用卡密获取邮件';
-            }
-        };
-    </script>
 </body>
 </html>

@@ -2,244 +2,288 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <title>邮箱账号管理后台</title>
+    <title>邮箱管理后台</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-    <style id="theme-style">
-        body {
-            background: linear-gradient(120deg, #f8f9fa 0%, #e2e6ea 100%);
-            padding: 30px;
-        }
-        .card { border-radius: 15px; box-shadow: 0 4px 16px #dee2e6; }
-        .table-striped>tbody>tr:hover { background-color: #eaf4ff; transition: background .2s; }
-        .welcome { font-size: 1.2rem; font-weight: bold; color: #0d6efd; letter-spacing: 1px; }
-        .logo { height: 38px; margin-right: 12px; }
-        .dark-toggle { float: right; margin-top: 10px; }
-        .btn-darkmode { margin-left: 10px; }
+    <style>
+        body { background: #f5f8fa; }
+        .sidebar { width: 220px; background: #fff; min-height: 100vh; position: fixed; left: 0; top: 0; border-right: 1px solid #e5e5e5; }
+        .sidebar .nav-link { color: #333; }
+        .main { margin-left: 230px; padding: 20px; }
+        .table th, .table td { vertical-align: middle; }
+        .filter-row .form-control { margin-right: 8px; min-width: 120px; }
+        .tag { font-size: 0.9em; padding: 2px 8px; border-radius: 8px; margin-right: 3px; }
+        .tag-pop3 { background: #f1f8e9; color: #388e3c; }
+        .tag-imap { background: #e3f2fd; color: #1976d2; }
+        .tag-success { background: #e8f5e9; color: #43a047; }
+        .tag-error { background: #ffebee; color: #e53935; }
+        .tag-default { background: #eeeeee; color: #444; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="d-flex justify-content-between align-items-center mt-3 mb-4">
-            <div class="d-flex align-items-center">
-                <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" class="logo" alt="LOGO">
-                <span class="welcome">欢迎使用邮箱账号管理后台</span>
+    <!-- 左侧导航栏 -->
+    <nav class="sidebar d-flex flex-column p-3">
+        <h5 class="mb-4">大恩邮箱伙伴平台</h5>
+        <ul class="nav nav-pills flex-column mb-auto">
+            <li class="nav-item"><a href="#" class="nav-link">首页</a></li>
+            <li><a href="#" class="nav-link active">邮箱管理</a></li>
+            <li><a href="#" class="nav-link">项目管理</a></li>
+            <li><a href="#" class="nav-link">标签管理</a></li>
+            <li><a href="#" class="nav-link">卡密管理</a></li>
+            <li><a href="#" class="nav-link">域名管理</a></li>
+            <li><a href="#" class="nav-link">规则管理</a></li>
+            <li><a href="#" class="nav-link">代理池子</a></li>
+            <li><a href="#" class="nav-link">收件日志</a></li>
+            <li><a href="#" class="nav-link">卡密日志</a></li>
+            <li><a href="#" class="nav-link">系统设置</a></li>
+        </ul>
+    </nav>
+    <!-- 主内容 -->
+    <div class="main">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h4>邮箱管理</h4>
             </div>
             <div>
-                <span class="me-2 text-success">管理员：{{ username }}</span>
-                <a href="/logout" class="btn btn-outline-secondary">退出登录</a>
-                <button type="button" class="btn btn-dark btn-darkmode" onclick="toggleDarkMode()">暗色模式</button>
+                <span class="text-success me-2">管理员：{{ username }}</span>
+                <a href="/logout" class="btn btn-outline-secondary btn-sm">退出登录</a>
             </div>
         </div>
-
-        {% if error %}
-        <div class="alert alert-danger">{{ error }}</div>
-        {% endif %}
-
-        <!-- 修改管理员账号、密码 -->
-        <div class="card mb-4">
-            <div class="card-header bg-warning text-dark rounded-top">修改管理员账号和密码</div>
-            <div class="card-body">
-                <form method="post" action="/change_admin_info" class="row g-3">
-                    <div class="col-md-3">
-                        <input type="text" name="new_username" class="form-control" placeholder="新账号" value="{{ admin_user.username if admin_user else '' }}">
-                    </div>
-                    <div class="col-md-3">
-                        <input type="password" name="new_password" class="form-control" placeholder="新密码">
-                    </div>
-                    <div class="col-md-3">
-                        <input type="password" name="confirm_password" class="form-control" placeholder="确认新密码">
-                    </div>
-                    <div class="col-md-3 d-grid">
-                        <button type="submit" class="btn btn-warning">修改账号/密码</button>
-                    </div>
-                </form>
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                  {% if messages %}
-                    {% for category, msg in messages %}
-                      <div class="alert alert-{{ category }} mt-2">{{ msg }}</div>
+        <!-- 顶部筛选区 -->
+        <form class="filter-row d-flex mb-2" method="get" action="/admin">
+            <input type="text" class="form-control" name="search_email" placeholder="账号" value="{{ request.args.get('search_email','') }}">
+            <input type="text" class="form-control" name="search_project" placeholder="项目" value="{{ request.args.get('search_project','') }}">
+            <input type="text" class="form-control" name="search_tag" placeholder="标签" value="{{ request.args.get('search_tag','') }}">
+            <select class="form-control" name="search_protocol">
+                <option value="">协议类型</option>
+                <option value="pop3">POP3</option>
+                <option value="imap">IMAP</option>
+            </select>
+            <select class="form-control" name="search_status">
+                <option value="">使用状态</option>
+                <option value="未使用">未使用</option>
+                <option value="已使用">已使用</option>
+            </select>
+            <button type="submit" class="btn btn-primary">筛选</button>
+            <button type="button" class="btn btn-success ms-2" onclick="showAddModal()">新建</button>
+            <button type="button" class="btn btn-danger ms-2" onclick="batchDelete()">全选删除</button>
+            <button type="button" class="btn btn-info ms-2" onclick="importAccounts()">导入</button>
+            <button type="button" class="btn btn-warning ms-2" onclick="exportAccounts()">导出</button>
+        </form>
+        <!-- 表格 -->
+        <div class="table-responsive">
+            <table class="table table-striped table-bordered align-middle">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="check-all" onclick="toggleSelectAll(this)"></th>
+                        <th>id</th>
+                        <th>邮箱账号</th>
+                        <th>邮箱密码</th>
+                        <th>项目</th>
+                        <th>标签</th>
+                        <th>协议类型</th>
+                        <th>登录测试</th>
+                        <th>结果说明</th>
+                        <th>使用代理</th>
+                        <th>代理地址</th>
+                        <th>代理类型</th>
+                        <th>来源</th>
+                        <th>使用状态</th>
+                        <th>已使用/总次数</th>
+                        <th>到期时间</th>
+                        <th>备注</th>
+                        <th>应用ID</th>
+                        <th>刷新标识</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for acc in accounts %}
+                    <tr>
+                        <td><input type="checkbox" name="selected_ids" value="{{ acc.id }}"></td>
+                        <td>{{ acc.id }}</td>
+                        <td>{{ acc.email }}</td>
+                        <td>{{ acc.password }}</td>
+                        <td>{{ acc.project }}</td>
+                        <td>{{ acc.tags }}</td>
+                        <td>
+                            {% if acc.protocol == 'pop3' %}
+                            <span class="tag tag-pop3">POP3</span>
+                            {% elif acc.protocol == 'imap' %}
+                            <span class="tag tag-imap">IMAP</span>
+                            {% else %}
+                            <span class="tag tag-default">{{ acc.protocol }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="tag {% if '成功' in acc.login_status %}tag-success{% elif '失败' in acc.login_status %}tag-error{% else %}tag-default{% endif %}">
+                                {{ acc.login_status or '未测试' }}
+                            </span>
+                            <button type="button" class="btn btn-sm btn-outline-info ms-1" onclick="testLogin('{{ acc.id }}', this)">测试</button>
+                        </td>
+                        <td>{{ acc.result_desc }}</td>
+                        <td>{{ acc.use_proxy }}</td>
+                        <td>{{ acc.proxy_addr }}</td>
+                        <td>{{ acc.proxy_type }}</td>
+                        <td>{{ acc.source }}</td>
+                        <td>{{ acc.status }}</td>
+                        <td>{{ acc.use_times }}</td>
+                        <td>{{ acc.expire_time }}</td>
+                        <td>{{ acc.remark }}</td>
+                        <td>{{ acc.app_id }}</td>
+                        <td>{{ acc.flag }}</td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-link" onclick="showEditModal('{{ acc.id }}')">修改</button>
+                            <button type="button" class="btn btn-sm btn-link text-danger" onclick="deleteAccount('{{ acc.id }}')">删除</button>
+                        </td>
+                    </tr>
                     {% endfor %}
-                  {% endif %}
-                {% endwith %}
+                </tbody>
+            </table>
+        </div>
+        <!-- 模态框：新增、修改 -->
+        <div class="modal fade" id="accountModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <form id="accountForm">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="modalTitle">新建账号</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body row g-3">
+                            <input type="hidden" name="id" id="form_id">
+                            <div class="col-md-6"><input type="text" name="email" id="form_email" class="form-control" placeholder="邮箱账号" required></div>
+                            <div class="col-md-6"><input type="text" name="password" id="form_password" class="form-control" placeholder="邮箱密码" required></div>
+                            <div class="col-md-4"><input type="text" name="project" id="form_project" class="form-control" placeholder="项目"></div>
+                            <div class="col-md-4"><input type="text" name="tags" id="form_tags" class="form-control" placeholder="标签"></div>
+                            <div class="col-md-4">
+                                <select name="protocol" id="form_protocol" class="form-control">
+                                    <option value="">协议类型</option>
+                                    <option value="pop3">POP3</option>
+                                    <option value="imap">IMAP</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4"><input type="text" name="login_status" id="form_login_status" class="form-control" placeholder="登录测试"></div>
+                            <div class="col-md-4"><input type="text" name="result_desc" id="form_result_desc" class="form-control" placeholder="结果说明"></div>
+                            <div class="col-md-4"><input type="text" name="use_proxy" id="form_use_proxy" class="form-control" placeholder="使用代理"></div>
+                            <div class="col-md-4"><input type="text" name="proxy_addr" id="form_proxy_addr" class="form-control" placeholder="代理地址"></div>
+                            <div class="col-md-4"><input type="text" name="proxy_type" id="form_proxy_type" class="form-control" placeholder="代理类型"></div>
+                            <div class="col-md-4"><input type="text" name="source" id="form_source" class="form-control" placeholder="来源"></div>
+                            <div class="col-md-4"><input type="text" name="status" id="form_status" class="form-control" placeholder="使用状态"></div>
+                            <div class="col-md-4"><input type="text" name="use_times" id="form_use_times" class="form-control" placeholder="已使用/总次数"></div>
+                            <div class="col-md-4"><input type="text" name="expire_time" id="form_expire_time" class="form-control" placeholder="到期时间"></div>
+                            <div class="col-md-4"><input type="text" name="remark" id="form_remark" class="form-control" placeholder="备注"></div>
+                            <div class="col-md-4"><input type="text" name="app_id" id="form_app_id" class="form-control" placeholder="应用ID"></div>
+                            <div class="col-md-4"><input type="text" name="flag" id="form_flag" class="form-control" placeholder="刷新标识"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="submit" class="btn btn-primary">保存</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
-
-        <!-- 导入导出操作 -->
-        <div class="mb-3">
-            <button type="button" class="btn btn-info me-2" onclick="exportAccounts()">导出账号</button>
-            <label class="btn btn-success mb-0">
-                导入账号
-                <input type="file" accept="application/json" style="display:none;" onchange="importAccounts(this)">
-            </label>
-            <button type="button" class="btn btn-danger ms-2" onclick="deleteSelected()">批量删除</button>
-        </div>
-
-        <!-- 添加新邮箱账号 -->
-        <div class="card mb-4">
-            <div class="card-header bg-primary text-white rounded-top">添加新邮箱账号</div>
-            <div class="card-body">
-                <form method="post" action="/admin" class="row g-3">
-                    <div class="col-md-2">
-                        <input type="text" name="name" class="form-control" placeholder="备注" value="{{ request.form.name or '' }}">
-                    </div>
-                    <div class="col-md-3">
-                        <input type="text" name="host" class="form-control" placeholder="IMAP服务器" required value="{{ request.form.host or '' }}">
-                    </div>
-                    <div class="col-md-3">
-                        <input type="text" name="user" class="form-control" placeholder="邮箱地址" required value="{{ request.form.user or '' }}">
-                    </div>
-                    <div class="col-md-3">
-                        <input type="password" name="password" class="form-control" placeholder="邮箱密码" required>
-                    </div>
-                    <div class="col-md-1 d-grid">
-                        <button type="submit" class="btn btn-primary">添加</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- 已添加邮箱账号列表 -->
-        <div class="card mb-4">
-            <div class="card-header bg-info text-white rounded-top">已添加邮箱账号</div>
-            <div class="card-body">
-                <form id="batch-form" method="post" action="/batch_delete">
-                <table class="table table-striped align-middle">
-                    <thead>
-                        <tr>
-                            <th><input type="checkbox" id="check-all" onclick="toggleSelectAll(this)"></th>
-                            <th>备注</th>
-                            <th>IMAP服务器</th>
-                            <th>邮箱地址</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for acc in accounts %}
-                        <tr>
-                            <td>
-                                <input type="checkbox" name="selected_users" value="{{ acc.user }}">
-                            </td>
-                            <td>{{ acc.name or '' }}</td>
-                            <td>{{ acc.host }}</td>
-                            <td>{{ acc.user }}</td>
-                            <td>
-                                <form method="post" action="/del_account" style="display:inline;">
-                                    <input type="hidden" name="user" value="{{ acc.user }}">
-                                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('确认删除该账号？');">删除</button>
-                                </form>
-                                <button type="button" class="btn btn-outline-success btn-sm ms-1" onclick="testAccount('{{ acc.user }}', this)">测试连接</button>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                </form>
-                {% if accounts|length == 0 %}
-                <div class="text-muted">暂无账号，请先添加。</div>
-                {% endif %}
-            </div>
-        </div>
-        <div id="test-result" style="display:none;" class="alert mt-2"></div>
+        <!-- 导入文件框 -->
+        <input type="file" id="importFile" style="display:none;" accept="application/json">
     </div>
-
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        function toggleDarkMode() {
-            const theme = document.getElementById('theme-style');
-            if (theme.getAttribute('data-dark') === '1') {
-                theme.innerHTML = `
-                    body { background: linear-gradient(120deg, #f8f9fa 0%, #e2e6ea 100%); padding: 30px; }
-                    .card { border-radius: 15px; box-shadow: 0 4px 16px #dee2e6; }
-                    .table-striped>tbody>tr:hover { background-color: #eaf4ff; transition: background .2s; }
-                    .welcome { font-size: 1.2rem; font-weight: bold; color: #0d6efd; letter-spacing: 1px; }
-                    .logo { height: 38px; margin-right: 12px; }
-                    .dark-toggle { float: right; margin-top: 10px; }
-                    .btn-darkmode { margin-left: 10px; }
-                `;
-                theme.setAttribute('data-dark', '0');
-                localStorage.setItem('darkmode', '0');
-            } else {
-                theme.innerHTML = `
-                    body { background: linear-gradient(120deg, #23272f 0%, #16181c 100%); color: #eee; padding: 30px; }
-                    .card { border-radius: 15px; box-shadow: 0 4px 16px #333; background: #23272f; color: #eee; }
-                    .table-striped>tbody>tr:hover { background-color: #2e3542 !important; transition: background .2s; }
-                    .welcome { font-size: 1.2rem; font-weight: bold; color: #ffc107; letter-spacing: 1px; }
-                    .logo { height: 38px; margin-right: 12px; }
-                    .dark-toggle { float: right; margin-top: 10px; }
-                    .btn-darkmode { margin-left: 10px; }
-                    .btn, .form-control { background: #292c35; color: #eee; border-color: #333; }
-                    .btn-primary, .btn-info, .btn-success { color: #fff; }
-                `;
-                theme.setAttribute('data-dark', '1');
-                localStorage.setItem('darkmode', '1');
-            }
+        // 模态框相关
+        var modal = new bootstrap.Modal(document.getElementById('accountModal'));
+        function showAddModal() {
+            document.getElementById('modalTitle').textContent = "新建账号";
+            document.getElementById('accountForm').reset();
+            document.getElementById('form_id').value = "";
+            modal.show();
         }
-        window.onload = function() {
-            if (localStorage.getItem('darkmode') === '1') {
-                toggleDarkMode();
-            }
+        function showEditModal(id) {
+            fetch("/account/batch_export").then(r=>r.json()).then(data=>{
+                var item = data.find(i=>i.id===id);
+                if(!item) return;
+                document.getElementById('modalTitle').textContent = "修改账号";
+                document.getElementById('form_id').value = item.id;
+                document.getElementById('form_email').value = item.email;
+                document.getElementById('form_password').value = item.password;
+                document.getElementById('form_project').value = item.project;
+                document.getElementById('form_tags').value = item.tags;
+                document.getElementById('form_protocol').value = item.protocol;
+                document.getElementById('form_login_status').value = item.login_status;
+                document.getElementById('form_result_desc').value = item.result_desc;
+                document.getElementById('form_use_proxy').value = item.use_proxy;
+                document.getElementById('form_proxy_addr').value = item.proxy_addr;
+                document.getElementById('form_proxy_type').value = item.proxy_type;
+                document.getElementById('form_source').value = item.source;
+                document.getElementById('form_status').value = item.status;
+                document.getElementById('form_use_times').value = item.use_times;
+                document.getElementById('form_expire_time').value = item.expire_time;
+                document.getElementById('form_remark').value = item.remark;
+                document.getElementById('form_app_id').value = item.app_id;
+                document.getElementById('form_flag').value = item.flag;
+                modal.show();
+            })
         }
-        function exportAccounts() {
-            fetch("/export_accounts")
-            .then(r => r.json())
-            .then(data => {
-                const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type: "application/json"}));
-                const a = document.createElement("a");
+        document.getElementById('accountForm').onsubmit = function(e){
+            e.preventDefault();
+            var fd = new FormData(this);
+            var id = fd.get('id');
+            var url = id ? `/account/${id}/update` : '/account/add';
+            fetch(url, {method:"POST",body:fd}).then(r=>r.json()).then(data=>{
+                if(data.success) location.reload();
+                else alert(data.error||"操作失败");
+            })
+        }
+        function deleteAccount(id){
+            if(!confirm("确认删除该账号？")) return;
+            fetch(`/account/${id}/delete`,{method:"POST"}).then(r=>r.json()).then(data=>{
+                if(data.success) location.reload();
+                else alert(data.error||"删除失败");
+            })
+        }
+        function batchDelete(){
+            var ids = Array.from(document.querySelectorAll('input[name="selected_ids"]:checked')).map(e=>e.value);
+            if(ids.length==0){alert("请勾选要删除的账号");return;}
+            if(!confirm("确认批量删除？")) return;
+            fetch("/account/batch_delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ids:ids})})
+            .then(r=>r.json()).then(data=>{
+                if(data.success) location.reload();
+                else alert(data.error||"批量删除失败");
+            })
+        }
+        function toggleSelectAll(box){
+            document.querySelectorAll('input[name="selected_ids"]').forEach(e=>e.checked=box.checked);
+        }
+        function importAccounts(){
+            document.getElementById('importFile').click();
+        }
+        document.getElementById('importFile').onchange = function(){
+            var file = this.files[0];
+            if(!file) return;
+            var reader = new FileReader();
+            reader.onload = function(e){
+                fetch("/account/batch_import",{method:"POST",headers:{"Content-Type":"application/json"},body:e.target.result})
+                .then(r=>r.json()).then(data=>{
+                    if(data.success) location.reload();
+                    else alert(data.error||"导入失败");
+                });
+            }
+            reader.readAsText(file);
+        }
+        function exportAccounts(){
+            fetch("/account/batch_export").then(r=>r.json()).then(data=>{
+                var url = URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));
+                var a = document.createElement("a");
                 a.href = url;
                 a.download = "accounts.json";
                 a.click();
                 URL.revokeObjectURL(url);
             });
         }
-        function importAccounts(input) {
-            if (input.files.length == 0) return;
-            const file = input.files[0];
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                fetch("/import_accounts", {
-                    method: "POST",
-                    headers: {"Content-Type": "application/json"},
-                    body: e.target.result
-                }).then(r => r.json())
-                .then(data => {
-                    if (data.success) location.reload();
-                    else alert("导入失败：" + data.error);
-                });
-            }
-            reader.readAsText(file);
-        }
-        function deleteSelected() {
-            const checked = Array.from(document.querySelectorAll('input[name="selected_users"]:checked')).map(e => e.value);
-            if (checked.length == 0) { alert("请选择需要删除的账号"); return; }
-            if (!confirm("确认删除选中的账号？")) return;
-            fetch("/batch_delete", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({users: checked})
-            }).then(r => r.json())
-            .then(data => {
-                if (data.success) location.reload();
-                else alert("批量删除失败：" + data.error);
-            });
-        }
-        function toggleSelectAll(box) {
-            document.querySelectorAll('input[name="selected_users"]').forEach(e => {
-                e.checked = box.checked;
-            });
-        }
-        function testAccount(user, btn) {
-            btn.disabled = true;
-            btn.textContent = "测试中...";
-            fetch("/test_account", {
-                method: "POST",
-                headers: {"Content-Type": "application/x-www-form-urlencoded"},
-                body: "user=" + encodeURIComponent(user)
-            })
-            .then(r => r.json())
-            .then(data => {
-                btn.disabled = false;
-                btn.textContent = "测试连接";
-                document.getElementById('test-result').style.display = "block";
-                document.getElementById('test-result').textContent = data.result;
-                setTimeout(() => { document.getElementById('test-result').style.display = "none"; }, 3000);
+        function testLogin(id, btn){
+            btn.disabled=true;btn.textContent="测试中...";
+            fetch(`/account/test_login/${id}`,{method:"POST"}).then(r=>r.json()).then(data=>{
+                btn.disabled=false;btn.textContent="测试";
+                alert(data.result);
+                location.reload();
             });
         }
     </script>

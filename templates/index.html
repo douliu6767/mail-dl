@@ -31,9 +31,10 @@
             if(data.error) {
                 result.innerHTML = `<b>错误：</b> ${data.error}`;
             } else {
-                result.innerHTML = `<b>主题：</b> ${data.subject}<br><b>内容：</b> ${data.body}<br><b>验证码：</b> ${data.code}`;
+                result.innerHTML = `<b>主题：</b> ${data.subject}<br><b>内容：</b><pre>${data.body}</pre>` +
+                    (data.code ? `<b>验证码：</b> <span style="color:red;">${data.code}</span>` : "");
             }
-        }
+        };
     </script>
 </body>
 </html>

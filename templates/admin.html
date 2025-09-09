@@ -200,6 +200,9 @@
             {% if error %}
             <div class="alert alert-danger">{{ error }}</div>
             {% endif %}
+            {% if success %}
+            <div class="alert alert-success">{{ success }}</div>
+            {% endif %}
 
             <!-- Dashboard Section -->
             <div id="dashboard" class="content-section active">
@@ -281,21 +284,48 @@
                     </div>
                     <div class="card-body">
                         <form method="post" action="/admin">
-                            <div class="row g-2">
-                                <div class="col-md-2">
-                                    <input type="text" name="name" class="form-control" placeholder="备注" value="{{ request.form.name or '' }}">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">备注名称</label>
+                                    <input type="text" name="name" class="form-control" placeholder="可选备注名称" value="{{ request.form.name or '' }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">邮箱地址 *</label>
+                                    <input type="email" name="user" class="form-control" placeholder="example@domain.com" required value="{{ request.form.user or '' }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">邮箱密码 *</label>
+                                    <input type="password" name="password" class="form-control" placeholder="邮箱密码或授权码" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">服务器地址 *</label>
+                                    <input type="text" name="host" class="form-control" placeholder="mail.example.com" required value="{{ request.form.host or '' }}">
                                 </div>
                                 <div class="col-md-3">
-                                    <input type="text" name="host" class="form-control" placeholder="IMAP服务器" required value="{{ request.form.host or '' }}">
+                                    <label class="form-label">协议类型 *</label>
+                                    <select name="protocol" class="form-select" id="protocol-select" onchange="updatePortSuggestion()">
+                                        <option value="IMAP" {{ 'selected' if request.form.protocol == 'IMAP' else '' }}>IMAP</option>
+                                        <option value="POP3" {{ 'selected' if request.form.protocol == 'POP3' else '' }}>POP3</option>
+                                    </select>
                                 </div>
                                 <div class="col-md-3">
-                                    <input type="text" name="user" class="form-control" placeholder="邮箱地址" required value="{{ request.form.user or '' }}">
+                                    <label class="form-label">端口号</label>
+                                    <input type="number" name="port" class="form-control" id="port-input" placeholder="自动推荐" value="{{ request.form.port or '' }}">
+                                    <div class="form-text" id="port-suggestion">推荐端口: 993</div>
                                 </div>
                                 <div class="col-md-3">
-                                    <input type="password" name="password" class="form-control" placeholder="邮箱密码" required>
+                                    <label class="form-label">安全连接</label>
+                                    <div class="form-check mt-2">
+                                        <input type="checkbox" name="ssl" class="form-check-input" id="ssl-checkbox" onchange="updatePortSuggestion()" checked>
+                                        <label class="form-check-label" for="ssl-checkbox">
+                                            启用 SSL/TLS
+                                        </label>
+                                    </div>
                                 </div>
-                                <div class="col-md-1 d-grid">
-                                    <button type="submit" class="btn btn-primary">添加</button>
+                                <div class="col-md-3 d-grid align-self-end">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-plus-circle"></i> 添加账号
+                                    </button>
                                 </div>
                             </div>
                         </form>
@@ -314,8 +344,11 @@
                                 <tr>
                                     <th><input type="checkbox" id="check-all" onclick="toggleSelectAll(this)"></th>
                                     <th>备注</th>
-                                    <th>IMAP服务器</th>
                                     <th>邮箱地址</th>
+                                    <th>服务器</th>
+                                    <th>协议</th>
+                                    <th>端口</th>
+                                    <th>SSL</th>
                                     <th>操作</th>
                                 </tr>
                             </thead>
@@ -325,9 +358,22 @@
                                     <td>
                                         <input type="checkbox" name="selected_users" value="{{ acc.user }}">
                                     </td>
-                                    <td>{{ acc.name or '' }}</td>
-                                    <td>{{ acc.host }}</td>
+                                    <td>{{ acc.name or '-' }}</td>
                                     <td>{{ acc.user }}</td>
+                                    <td>{{ acc.host }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'primary' if acc.get('protocol', 'IMAP') == 'IMAP' else 'info' }}">
+                                            {{ acc.get('protocol', 'IMAP') }}
+                                        </span>
+                                    </td>
+                                    <td>{{ acc.get('port', '993' if acc.get('ssl', True) else '143') }}</td>
+                                    <td>
+                                        {% if acc.get('ssl', True) %}
+                                            <i class="bi bi-shield-check text-success" title="SSL启用"></i>
+                                        {% else %}
+                                            <i class="bi bi-shield-x text-warning" title="SSL未启用"></i>
+                                        {% endif %}
+                                    </td>
                                     <td>
                                         <form method="post" action="/del_account" style="display:inline;">
                                             <input type="hidden" name="user" value="{{ acc.user }}">
@@ -874,6 +920,33 @@
                 setTimeout(() => { resultDiv.style.display = "none"; }, 5000);
             });
         }
+
+        // 端口建议功能
+        function updatePortSuggestion() {
+            const protocol = document.getElementById('protocol-select').value;
+            const ssl = document.getElementById('ssl-checkbox').checked;
+            const portInput = document.getElementById('port-input');
+            const suggestion = document.getElementById('port-suggestion');
+            
+            let recommendedPort;
+            if (protocol === 'IMAP') {
+                recommendedPort = ssl ? '993' : '143';
+            } else { // POP3
+                recommendedPort = ssl ? '995' : '110';
+            }
+            
+            suggestion.textContent = `推荐端口: ${recommendedPort}`;
+            
+            // 如果端口输入框为空，自动填入推荐端口
+            if (!portInput.value) {
+                portInput.placeholder = recommendedPort;
+            }
+        }
+
+        // 页面加载时初始化端口建议
+        document.addEventListener('DOMContentLoaded', function() {
+            updatePortSuggestion();
+        });
     </script>
 </body>
 </html>

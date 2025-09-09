@@ -4,5 +4,14 @@
     "host": "imap.gmail.com",
     "user": "test@example.com",
     "password": "password123"
+  },
+  {
+    "name": "测试POP3账号",
+    "host": "pop.example.com",
+    "user": "pop3test@example.com",
+    "password": "testpass123",
+    "protocol": "POP3",
+    "port": 110,
+    "ssl": false
   }
 ]

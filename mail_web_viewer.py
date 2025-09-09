@@ -46,16 +46,59 @@ def getmail():
     if not account:
         return jsonify({"error": "未找到该账号"})
     try:
-        from imapclient import IMAPClient
-        import email
-        with IMAPClient(account["host"]) as server:
-            server.login(account["user"], account["password"])
-            server.select_folder("INBOX")
-            messages = server.search('ALL')
-            if not messages:
+        # 获取协议、端口和SSL设置，提供默认值以支持旧账号
+        protocol = account.get("protocol", "IMAP")
+        port = account.get("port", 993 if account.get("ssl", True) else 143)
+        ssl = account.get("ssl", True)
+        host = account["host"]
+        
+        if protocol == "IMAP":
+            from imapclient import IMAPClient
+            import email
+            with IMAPClient(host, port=port, ssl=ssl) as server:
+                server.login(account["user"], account["password"])
+                server.select_folder("INBOX")
+                messages = server.search('ALL')
+                if not messages:
+                    return jsonify({"subject": "无邮件", "body": "邮箱为空。"})
+                latest_uid = messages[-1]
+                raw_message = server.fetch([latest_uid], ['RFC822'])[latest_uid][b'RFC822']
+                msg = email.message_from_bytes(raw_message)
+                subject = email.header.make_header(email.header.decode_header(msg.get("Subject", "")))
+                body = ""
+                if msg.is_multipart():
+                    for part in msg.walk():
+                        if part.get_content_type() == "text/plain":
+                            text = part.get_payload(decode=True)
+                            if text:
+                                body += text.decode(errors="ignore")
+                else:
+                    text = msg.get_payload(decode=True)
+                    if text:
+                        body = text.decode(errors="ignore")
+                code_match = re.search(CODE_REGEX, body)
+                code = code_match.group(1) if code_match else ""
+                return jsonify({"subject": str(subject), "body": body, "code": code})
+        else:  # POP3
+            import poplib
+            import email
+            if ssl:
+                server = poplib.POP3_SSL(host, port)
+            else:
+                server = poplib.POP3(host, port)
+            server.user(account["user"])
+            server.pass_(account["password"])
+            
+            # 获取邮件数量
+            num_messages = len(server.list()[1])
+            if num_messages == 0:
+                server.quit()
                 return jsonify({"subject": "无邮件", "body": "邮箱为空。"})
-            latest_uid = messages[-1]
-            raw_message = server.fetch([latest_uid], ['RFC822'])[latest_uid][b'RFC822']
+            
+            # 获取最新邮件
+            raw_message = b"\n".join(server.retr(num_messages)[1])
+            server.quit()
+            
             msg = email.message_from_bytes(raw_message)
             subject = email.header.make_header(email.header.decode_header(msg.get("Subject", "")))
             body = ""
@@ -72,6 +115,7 @@ def getmail():
             code_match = re.search(CODE_REGEX, body)
             code = code_match.group(1) if code_match else ""
             return jsonify({"subject": str(subject), "body": body, "code": code})
+            
     except Exception as e:
         return jsonify({"error": str(e)})
 
@@ -104,14 +148,39 @@ def admin():
         host = request.form.get("host", "")
         user = request.form.get("user", "")
         password = request.form.get("password", "")
+        protocol = request.form.get("protocol", "IMAP")  # 新增协议字段
+        port = request.form.get("port", "")  # 新增端口字段
+        ssl = request.form.get("ssl") == "on"  # 新增SSL字段
+        
         if not (host and user and password):
             return render_template("admin.html", accounts=load_accounts(), error="请填写完整信息", username=session.get('username'))
+        
+        # 如果端口为空，根据协议和SSL设置默认端口
+        if not port:
+            if protocol == "IMAP":
+                port = "993" if ssl else "143"
+            else:  # POP3
+                port = "995" if ssl else "110"
+        
         accounts = load_accounts()
         if any(a["user"] == user for a in accounts):
             return render_template("admin.html", accounts=accounts, error="该账号已存在", username=session.get('username'))
-        accounts.append({"name": name, "host": host, "user": user, "password": password})
+        
+        # 创建包含新字段的账号数据
+        new_account = {
+            "name": name, 
+            "host": host, 
+            "user": user, 
+            "password": password,
+            "protocol": protocol,
+            "port": int(port) if port.isdigit() else port,
+            "ssl": ssl
+        }
+        accounts.append(new_account)
         save_accounts(accounts)
-        return redirect(url_for("admin"))
+        
+        # 不重定向到首页，而是重新渲染当前页面
+        return render_template("admin.html", accounts=load_accounts(), error=None, success="账号添加成功！", username=session.get('username'))
     return render_template("admin.html", accounts=load_accounts(), error=None, username=session.get('username'))
 
 @app.route("/del_account", methods=["POST"])
@@ -135,9 +204,26 @@ def test_account():
     if not account:
         return jsonify({"result": "账号不存在"})
     try:
-        from imapclient import IMAPClient
-        with IMAPClient(account["host"]) as server:
-            server.login(account["user"], account["password"])
+        # 获取协议、端口和SSL设置，提供默认值以支持旧账号
+        protocol = account.get("protocol", "IMAP")
+        port = account.get("port", 993 if account.get("ssl", True) else 143)
+        ssl = account.get("ssl", True)
+        host = account["host"]
+        
+        if protocol == "IMAP":
+            from imapclient import IMAPClient
+            with IMAPClient(host, port=port, ssl=ssl) as server:
+                server.login(account["user"], account["password"])
+        else:  # POP3
+            import poplib
+            if ssl:
+                server = poplib.POP3_SSL(host, port)
+            else:
+                server = poplib.POP3(host, port)
+            server.user(account["user"])
+            server.pass_(account["password"])
+            server.quit()
+        
         return jsonify({"result": "连接成功"})
     except Exception as e:
         return jsonify({"result": f"连接失败：{str(e)}"})

@@ -1,8 +1,7 @@
-import json
 import re
 import os
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
-from models import db, AdminUser
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash, Response
+from models import db, AdminUser, MailAccount
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("ADMIN_SECRET_KEY", "a_very_secret_key")
@@ -20,36 +19,24 @@ def init_admin():
             db.session.commit()
 init_admin()
 
-ACCOUNTS_FILE = "accounts.json"
 CODE_REGEX = r"\b(\d{6})\b"
-
-def load_accounts():
-    if os.path.exists(ACCOUNTS_FILE):
-        with open(ACCOUNTS_FILE, encoding="utf-8") as f:
-            return json.load(f)
-    return []
-
-def save_accounts(accounts):
-    with open(ACCOUNTS_FILE, "w", encoding="utf-8") as f:
-        json.dump(accounts, f, ensure_ascii=False, indent=2)
 
 @app.route("/")
 def index():
-    accounts = load_accounts()
-    return render_template("index.html", accounts=[a["user"] for a in accounts])
+    accounts = MailAccount.query.all()
+    return render_template("index.html", accounts=[a.user for a in accounts])
 
 @app.route("/getmail", methods=["POST"])
 def getmail():
     user = request.form.get("user")
-    accounts = load_accounts()
-    account = next((a for a in accounts if a["user"] == user), None)
+    account = MailAccount.query.filter_by(user=user).first()
     if not account:
         return jsonify({"error": "未找到该账号"})
     try:
         from imapclient import IMAPClient
         import email
-        with IMAPClient(account["host"]) as server:
-            server.login(account["user"], account["password"])
+        with IMAPClient(account.host) as server:
+            server.login(account.user, account.password)
             server.select_folder("INBOX")
             messages = server.search('ALL')
             if not messages:
@@ -99,20 +86,23 @@ def logout():
 def admin():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
+    error = None
     if request.method == "POST":
         name = request.form.get("name", "")
         host = request.form.get("host", "")
         user = request.form.get("user", "")
         password = request.form.get("password", "")
         if not (host and user and password):
-            return render_template("admin.html", accounts=load_accounts(), error="请填写完整信息", username=session.get('username'))
-        accounts = load_accounts()
-        if any(a["user"] == user for a in accounts):
-            return render_template("admin.html", accounts=accounts, error="该账号已存在", username=session.get('username'))
-        accounts.append({"name": name, "host": host, "user": user, "password": password})
-        save_accounts(accounts)
-        return redirect(url_for("admin"))
-    return render_template("admin.html", accounts=load_accounts(), error=None, username=session.get('username'))
+            error = "请填写完整信息"
+        elif MailAccount.query.filter_by(user=user).first():
+            error = "该账号已存在"
+        else:
+            new_acc = MailAccount(name=name, host=host, user=user, password=password)
+            db.session.add(new_acc)
+            db.session.commit()
+            return redirect(url_for("admin"))
+    accounts = MailAccount.query.all()
+    return render_template("admin.html", accounts=accounts, error=error, username=session.get('username'))
 
 @app.route("/change_admin_pass", methods=['POST'])
 def change_admin_pass():
@@ -141,9 +131,10 @@ def del_account():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
     user = request.form.get("user")
-    accounts = load_accounts()
-    accounts = [a for a in accounts if a["user"] != user]
-    save_accounts(accounts)
+    account = MailAccount.query.filter_by(user=user).first()
+    if account:
+        db.session.delete(account)
+        db.session.commit()
     return redirect(url_for("admin"))
 
 @app.route("/test_account", methods=["POST"])
@@ -151,14 +142,13 @@ def test_account():
     if not session.get('logged_in'):
         return jsonify({"result": "未登录"})
     user = request.form.get("user")
-    accounts = load_accounts()
-    account = next((a for a in accounts if a["user"] == user), None)
+    account = MailAccount.query.filter_by(user=user).first()
     if not account:
         return jsonify({"result": "账号不存在"})
     try:
         from imapclient import IMAPClient
-        with IMAPClient(account["host"]) as server:
-            server.login(account["user"], account["password"])
+        with IMAPClient(account.host) as server:
+            server.login(account.user, account.password)
         return jsonify({"result": "连接成功"})
     except Exception as e:
         return jsonify({"result": f"连接失败：{str(e)}"})
@@ -167,15 +157,29 @@ def test_account():
 def export_accounts():
     if not session.get('logged_in'):
         return jsonify([])
-    return jsonify(load_accounts())
+    accounts = MailAccount.query.all()
+    # 导出为和原来json一样格式
+    return jsonify([
+        {"name": a.name, "host": a.host, "user": a.user, "password": a.password}
+        for a in accounts
+    ])
 
 @app.route("/import_accounts", methods=["POST"])
 def import_accounts():
     if not session.get('logged_in'):
         return jsonify({"success": False, "error": "未登录"})
     try:
-        accounts = json.loads(request.data)
-        save_accounts(accounts)
+        accounts = request.get_json(force=True)
+        for acc in accounts:
+            if not MailAccount.query.filter_by(user=acc.get("user")).first():
+                new_acc = MailAccount(
+                    name=acc.get("name"),
+                    host=acc.get("host"),
+                    user=acc.get("user"),
+                    password=acc.get("password")
+                )
+                db.session.add(new_acc)
+        db.session.commit()
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
@@ -186,9 +190,11 @@ def batch_delete():
         return jsonify({"success": False, "error": "未登录"})
     try:
         users = request.json.get("users", [])
-        accounts = load_accounts()
-        accounts = [a for a in accounts if a["user"] not in users]
-        save_accounts(accounts)
+        for user in users:
+            acc = MailAccount.query.filter_by(user=user).first()
+            if acc:
+                db.session.delete(acc)
+        db.session.commit()
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})

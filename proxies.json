@@ -1,0 +1,12 @@
+[
+  {
+    "id": "1757390884480",
+    "name": "测试代理",
+    "type": "HTTP",
+    "host": "127.0.0.1",
+    "port": 8080,
+    "username": "",
+    "password": "",
+    "enabled": true
+  }
+]

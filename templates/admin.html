@@ -230,7 +230,7 @@
                             <div class="card-body text-center">
                                 <i class="bi bi-globe h2 text-info"></i>
                                 <h5>代理节点</h5>
-                                <h3 class="text-info">0</h3>
+                                <h3 class="text-info">{{ proxies|length }}</h3>
                             </div>
                         </div>
                     </div>
@@ -255,7 +255,7 @@
                         <ul>
                             <li><strong>邮箱管理</strong>：管理IMAP邮箱账号，包括添加、删除、测试连接等功能</li>
                             <li><strong>卡密管理</strong>：管理系统卡密（即将推出）</li>
-                            <li><strong>代理池</strong>：管理代理服务器池（即将推出）</li>
+                            <li><strong>代理池</strong>：管理代理服务器池，支持HTTP/SOCKS4/SOCKS5代理</li>
                             <li><strong>收件日志</strong>：查看邮件收取日志（即将推出）</li>
                             <li><strong>卡密日志</strong>：查看卡密使用日志（即将推出）</li>
                             <li><strong>系统设置</strong>：配置系统参数（即将推出）</li>
@@ -410,18 +410,117 @@
             </div>
 
             <div id="proxy-pool" class="content-section">
-                <div class="card">
+                <!-- 导入导出操作 -->
+                <div class="mb-3">
+                    <button type="button" class="btn btn-info me-2" onclick="exportProxies()">导出代理</button>
+                    <label class="btn btn-success mb-0">
+                        导入代理
+                        <input type="file" accept="application/json" style="display:none;" onchange="importProxies(this)">
+                    </label>
+                    <button type="button" class="btn btn-danger ms-2" onclick="deleteSelectedProxies()">批量删除代理</button>
+                </div>
+
+                <!-- 添加新代理 -->
+                <div class="card mb-4">
                     <div class="card-header">
-                        <i class="bi bi-globe"></i> 代理池管理
+                        <i class="bi bi-plus-circle"></i> 添加新代理
                     </div>
                     <div class="card-body">
-                        <div class="text-center py-5">
-                            <i class="bi bi-globe display-1 text-muted"></i>
-                            <h4 class="mt-3">代理池管理功能</h4>
-                            <p class="text-muted">此功能正在开发中，敬请期待...</p>
-                        </div>
+                        <form method="post" action="/proxy_admin" class="row g-3">
+                            <div class="col-md-2">
+                                <input type="text" name="name" class="form-control" placeholder="代理备注" value="{{ request.form.name or '' }}">
+                            </div>
+                            <div class="col-md-2">
+                                <select name="type" class="form-control">
+                                    <option value="HTTP" {{ 'selected' if request.form.type == 'HTTP' else '' }}>HTTP</option>
+                                    <option value="SOCKS4" {{ 'selected' if request.form.type == 'SOCKS4' else '' }}>SOCKS4</option>
+                                    <option value="SOCKS5" {{ 'selected' if request.form.type == 'SOCKS5' else '' }}>SOCKS5</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <input type="text" name="host" class="form-control" placeholder="代理地址" required value="{{ request.form.host or '' }}">
+                            </div>
+                            <div class="col-md-1">
+                                <input type="text" name="port" class="form-control" placeholder="端口" required value="{{ request.form.port or '' }}">
+                            </div>
+                            <div class="col-md-2">
+                                <input type="text" name="username" class="form-control" placeholder="用户名(可选)" value="{{ request.form.username or '' }}">
+                            </div>
+                            <div class="col-md-2">
+                                <input type="password" name="password" class="form-control" placeholder="密码(可选)">
+                            </div>
+                            <div class="col-md-1 d-flex align-items-center">
+                                <div class="form-check">
+                                    <input type="checkbox" name="enabled" class="form-check-input" id="enabled" checked>
+                                    <label class="form-check-label" for="enabled">启用</label>
+                                </div>
+                            </div>
+                            <div class="col-md-12 text-end">
+                                <button type="submit" class="btn btn-primary">添加代理</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
+
+                <!-- 代理列表 -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-globe"></i> 代理池列表
+                    </div>
+                    <div class="card-body">
+                        <form id="batch-proxy-form" method="post" action="/batch_delete_proxies">
+                        <table class="table table-striped align-middle">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="check-all-proxies" onclick="toggleSelectAllProxies(this)"></th>
+                                    <th>备注</th>
+                                    <th>类型</th>
+                                    <th>地址</th>
+                                    <th>端口</th>
+                                    <th>用户名</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for proxy in proxies %}
+                                <tr>
+                                    <td>
+                                        <input type="checkbox" name="selected_proxies" value="{{ proxy.id }}">
+                                    </td>
+                                    <td>{{ proxy.name or '' }}</td>
+                                    <td><span class="badge bg-info">{{ proxy.type }}</span></td>
+                                    <td>{{ proxy.host }}</td>
+                                    <td>{{ proxy.port }}</td>
+                                    <td>{{ proxy.username or '-' }}</td>
+                                    <td>
+                                        {% if proxy.enabled %}
+                                        <span class="badge bg-success">启用</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">禁用</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <form method="post" action="/del_proxy" style="display:inline;">
+                                            <input type="hidden" name="proxy_id" value="{{ proxy.id }}">
+                                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('确认删除该代理？');">删除</button>
+                                        </form>
+                                        <button type="button" class="btn btn-outline-success btn-sm ms-1" onclick="testProxy('{{ proxy.id }}', this)">测试</button>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted">暂无代理配置</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 测试结果提示 -->
+                <div id="proxy-test-result" class="alert" style="display:none; margin-top: 15px;"></div>
             </div>
 
             <div id="inbox-logs" class="content-section">
@@ -947,6 +1046,103 @@
         document.addEventListener('DOMContentLoaded', function() {
             updatePortSuggestion();
         });
+
+        // 代理池管理函数
+        // 导出代理
+        function exportProxies() {
+            fetch("/export_proxies")
+            .then(r => r.json())
+            .then(data => {
+                const blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "proxies.json";
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+        }
+
+        // 导入代理
+        function importProxies(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const proxies = JSON.parse(e.target.result);
+                    fetch("/import_proxies", {
+                        method: "POST",
+                        headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify(proxies)
+                    }).then(r => r.json())
+                    .then(data => {
+                        if (data.success) location.reload();
+                        else alert("导入失败：" + data.error);
+                    });
+                } catch (err) {
+                    alert("文件格式错误");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // 批量删除代理
+        function deleteSelectedProxies() {
+            const checked = Array.from(document.querySelectorAll('input[name="selected_proxies"]:checked')).map(e => e.value);
+            if (checked.length == 0) { alert("请选择需要删除的代理"); return; }
+            if (!confirm("确认删除选中的代理？")) return;
+            fetch("/batch_delete_proxies", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({proxy_ids: checked})
+            }).then(r => r.json())
+            .then(data => {
+                if (data.success) location.reload();
+                else alert("批量删除失败：" + data.error);
+            });
+        }
+
+        // 全选代理
+        function toggleSelectAllProxies(box) {
+            document.querySelectorAll('input[name="selected_proxies"]').forEach(e => {
+                e.checked = box.checked;
+            });
+        }
+
+        // 测试代理
+        function testProxy(proxyId, btn) {
+            btn.disabled = true;
+            btn.textContent = "测试中...";
+            fetch("/test_proxy", {
+                method: "POST",
+                headers: {"Content-Type": "application/x-www-form-urlencoded"},
+                body: "proxy_id=" + encodeURIComponent(proxyId)
+            })
+            .then(r => r.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.textContent = "测试";
+                var resultDiv = document.getElementById("proxy-test-result");
+                resultDiv.style.display = "block";
+                if (data.result.indexOf("成功") !== -1) {
+                    resultDiv.className = "alert alert-success mt-2";
+                } else {
+                    resultDiv.className = "alert alert-danger mt-2";
+                }
+                resultDiv.textContent = "代理测试结果：" + data.result;
+                setTimeout(() => { resultDiv.style.display = "none"; }, 5000);
+            })
+            .catch(() => {
+                btn.disabled = false;
+                btn.textContent = "测试";
+                var resultDiv = document.getElementById("proxy-test-result");
+                resultDiv.className = "alert alert-danger mt-2";
+                resultDiv.textContent = "测试失败，请重试！";
+                resultDiv.style.display = "block";
+                setTimeout(() => { resultDiv.style.display = "none"; }, 5000);
+            });
+        }
     </script>
 </body>
 </html>

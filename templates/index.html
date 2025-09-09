@@ -97,6 +97,19 @@
                 <input type="email" class="form-control" name="user" id="user" 
                        placeholder="请输入邮箱地址 (例如: user@example.com)" required>
             </div>
+            <div class="mb-3">
+                <label for="proxy_selection" class="form-label">代理设置</label>
+                <select name="proxy_selection" id="proxy_selection" class="form-control">
+                    <option value="auto">自动选择代理</option>
+                    <option value="direct">直接连接（不使用代理）</option>
+                    {% for proxy in proxies %}
+                    {% if proxy.enabled %}
+                    <option value="{{ proxy.id }}">{{ proxy.name or proxy.host }}:{{ proxy.port }} ({{ proxy.type }})</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+                <small class="form-text text-muted">选择用于连接邮箱的代理方式</small>
+            </div>
             <div class="text-center">
                 <button type="submit" class="btn btn-primary">
                     获取最新邮件

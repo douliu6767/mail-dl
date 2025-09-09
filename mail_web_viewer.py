@@ -1,13 +1,21 @@
 import json
 import re
 import os
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session
-from models import db, AdminUser
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_from_directory
+from werkzeug.utils import secure_filename
+from models import db, AdminUser, SystemSettings, ProxyPool
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("ADMIN_SECRET_KEY", "a_very_secret_key")
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///admin.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['UPLOAD_FOLDER'] = 'static'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 db.init_app(app)
 
 def init_admin():
@@ -132,7 +140,10 @@ def login():
             return redirect(url_for('admin'))
         else:
             error = "用户名或密码错误"
-    return render_template('login.html', error=error)
+    
+    # 获取自定义logo设置
+    custom_logo = SystemSettings.get_setting('custom_logo', 'logo.png')
+    return render_template('login.html', error=error, custom_logo=custom_logo)
 
 @app.route('/logout')
 def logout():
@@ -153,7 +164,8 @@ def admin():
         ssl = request.form.get("ssl") == "on"  # 新增SSL字段
         
         if not (host and user and password):
-            return render_template("admin.html", accounts=load_accounts(), error="请填写完整信息", username=session.get('username'))
+            proxy_count = ProxyPool.query.count()
+            return render_template("admin.html", accounts=load_accounts(), error="请填写完整信息", username=session.get('username'), proxy_count=proxy_count)
         
         # 如果端口为空，根据协议和SSL设置默认端口
         if not port:
@@ -164,7 +176,8 @@ def admin():
         
         accounts = load_accounts()
         if any(a["user"] == user for a in accounts):
-            return render_template("admin.html", accounts=accounts, error="该账号已存在", username=session.get('username'))
+            proxy_count = ProxyPool.query.count()
+            return render_template("admin.html", accounts=accounts, error="该账号已存在", username=session.get('username'), proxy_count=proxy_count)
         
         # 创建包含新字段的账号数据
         new_account = {
@@ -180,8 +193,11 @@ def admin():
         save_accounts(accounts)
         
         # 不重定向到首页，而是重新渲染当前页面
-        return render_template("admin.html", accounts=load_accounts(), error=None, success="账号添加成功！", username=session.get('username'))
-    return render_template("admin.html", accounts=load_accounts(), error=None, username=session.get('username'))
+        proxy_count = ProxyPool.query.count()
+        return render_template("admin.html", accounts=load_accounts(), error=None, success="账号添加成功！", username=session.get('username'), proxy_count=proxy_count)
+    
+    proxy_count = ProxyPool.query.count()
+    return render_template("admin.html", accounts=load_accounts(), error=None, username=session.get('username'), proxy_count=proxy_count)
 
 @app.route("/del_account", methods=["POST"])
 def del_account():
@@ -192,7 +208,8 @@ def del_account():
     accounts = [a for a in accounts if a["user"] != user]
     save_accounts(accounts)
     # 不重定向到首页，而是重新渲染当前页面
-    return render_template("admin.html", accounts=load_accounts(), error=None, success="账号删除成功！", username=session.get('username'))
+    proxy_count = ProxyPool.query.count()
+    return render_template("admin.html", accounts=load_accounts(), error=None, success="账号删除成功！", username=session.get('username'), proxy_count=proxy_count)
 
 # 新增：测试账号连接
 @app.route("/test_account", methods=["POST"])
@@ -261,6 +278,151 @@ def batch_delete():
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
+# 系统设置相关路由
+@app.route("/upload_logo", methods=["POST"])
+def upload_logo():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    if 'logo' not in request.files:
+        return jsonify({"success": False, "error": "没有选择文件"})
+    
+    file = request.files['logo']
+    if file.filename == '':
+        return jsonify({"success": False, "error": "没有选择文件"})
+    
+    if file and allowed_file(file.filename):
+        try:
+            # 删除旧的logo文件
+            old_logo = SystemSettings.get_setting('custom_logo')
+            if old_logo and old_logo != 'logo.png':
+                old_path = os.path.join(app.config['UPLOAD_FOLDER'], old_logo)
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+            
+            # 保存新文件
+            filename = secure_filename(file.filename)
+            filename = f"custom_logo_{filename}"
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            
+            # 更新数据库设置
+            SystemSettings.set_setting('custom_logo', filename)
+            
+            return jsonify({"success": True, "filename": filename})
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)})
+    else:
+        return jsonify({"success": False, "error": "文件格式不支持，请上传 PNG、JPG 或 JPEG 格式"})
+
+@app.route("/reset_logo", methods=["POST"])
+def reset_logo():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        # 删除自定义logo文件
+        old_logo = SystemSettings.get_setting('custom_logo')
+        if old_logo and old_logo != 'logo.png':
+            old_path = os.path.join(app.config['UPLOAD_FOLDER'], old_logo)
+            if os.path.exists(old_path):
+                os.remove(old_path)
+        
+        # 重置为默认logo
+        SystemSettings.set_setting('custom_logo', 'logo.png')
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+# 代理池管理路由
+@app.route("/api/proxy", methods=["GET"])
+def get_proxies():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    proxies = ProxyPool.query.all()
+    return jsonify({"success": True, "data": [proxy.to_dict() for proxy in proxies]})
+
+@app.route("/api/proxy", methods=["POST"])
+def add_proxy():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        data = request.json
+        proxy = ProxyPool(
+            name=data.get('name'),
+            host=data.get('host'),
+            port=int(data.get('port')),
+            username=data.get('username'),
+            password=data.get('password'),
+            protocol=data.get('protocol', 'HTTP')
+        )
+        db.session.add(proxy)
+        db.session.commit()
+        return jsonify({"success": True, "data": proxy.to_dict()})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route("/api/proxy/<int:proxy_id>", methods=["PUT"])
+def update_proxy(proxy_id):
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        proxy = ProxyPool.query.get_or_404(proxy_id)
+        data = request.json
+        
+        proxy.name = data.get('name', proxy.name)
+        proxy.host = data.get('host', proxy.host)
+        proxy.port = int(data.get('port', proxy.port))
+        proxy.username = data.get('username', proxy.username)
+        proxy.password = data.get('password', proxy.password)
+        proxy.protocol = data.get('protocol', proxy.protocol)
+        proxy.is_active = data.get('is_active', proxy.is_active)
+        
+        db.session.commit()
+        return jsonify({"success": True, "data": proxy.to_dict()})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route("/api/proxy/<int:proxy_id>", methods=["DELETE"])
+def delete_proxy(proxy_id):
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        proxy = ProxyPool.query.get_or_404(proxy_id)
+        db.session.delete(proxy)
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route("/api/proxy/<int:proxy_id>/toggle", methods=["POST"])
+def toggle_proxy(proxy_id):
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        proxy = ProxyPool.query.get_or_404(proxy_id)
+        proxy.is_active = not proxy.is_active
+        db.session.commit()
+        return jsonify({"success": True, "data": proxy.to_dict()})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+# 获取系统设置
+@app.route("/api/settings", methods=["GET"])
+def get_settings():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    settings = {
+        'custom_logo': SystemSettings.get_setting('custom_logo', 'logo.png')
+    }
+    return jsonify({"success": True, "data": settings})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8001)

@@ -13,5 +13,14 @@
     "protocol": "POP3",
     "port": 110,
     "ssl": false
+  },
+  {
+    "name": "Test Email",
+    "host": "imap.gmail.com",
+    "user": "test@gmail.com",
+    "password": "testpass",
+    "protocol": "IMAP",
+    "port": 993,
+    "ssl": true
   }
 ]

@@ -230,7 +230,7 @@
                             <div class="card-body text-center">
                                 <i class="bi bi-globe h2 text-info"></i>
                                 <h5>代理节点</h5>
-                                <h3 class="text-info">0</h3>
+                                <h3 class="text-info">{{ proxy_count or 0 }}</h3>
                             </div>
                         </div>
                     </div>
@@ -410,15 +410,73 @@
             </div>
 
             <div id="proxy-pool" class="content-section">
-                <div class="card">
+                <!-- 添加代理表单 -->
+                <div class="card mb-4">
                     <div class="card-header">
-                        <i class="bi bi-globe"></i> 代理池管理
+                        <i class="bi bi-plus-circle"></i> 添加新代理
                     </div>
                     <div class="card-body">
-                        <div class="text-center py-5">
-                            <i class="bi bi-globe display-1 text-muted"></i>
-                            <h4 class="mt-3">代理池管理功能</h4>
-                            <p class="text-muted">此功能正在开发中，敬请期待...</p>
+                        <form id="proxy-form">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">代理名称 *</label>
+                                    <input type="text" id="proxy-name" class="form-control" placeholder="代理服务器名称" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">服务器地址 *</label>
+                                    <input type="text" id="proxy-host" class="form-control" placeholder="127.0.0.1 或 proxy.example.com" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">端口 *</label>
+                                    <input type="number" id="proxy-port" class="form-control" placeholder="8080" required min="1" max="65535">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">协议类型 *</label>
+                                    <select id="proxy-protocol" class="form-select">
+                                        <option value="HTTP">HTTP</option>
+                                        <option value="SOCKS5">SOCKS5</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">用户名</label>
+                                    <input type="text" id="proxy-username" class="form-control" placeholder="可选">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">密码</label>
+                                    <input type="password" id="proxy-password" class="form-control" placeholder="可选">
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <button type="submit" class="btn btn-primary me-2">
+                                        <i class="bi bi-plus-circle"></i> 添加代理
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" onclick="resetProxyForm()">
+                                        <i class="bi bi-arrow-clockwise"></i> 重置表单
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 代理列表 -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-globe"></i> 代理池管理</span>
+                            <button type="button" class="btn btn-outline-light btn-sm" onclick="refreshProxyList()">
+                                <i class="bi bi-arrow-clockwise"></i> 刷新
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="proxy-list">
+                            <div class="text-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">加载中...</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -455,15 +513,48 @@
             </div>
 
             <div id="system-settings" class="content-section">
-                <div class="card">
+                <!-- Logo 管理 -->
+                <div class="card mb-4">
                     <div class="card-header">
-                        <i class="bi bi-gear"></i> 系统设置
+                        <i class="bi bi-image"></i> Logo 管理
                     </div>
                     <div class="card-body">
-                        <div class="text-center py-5">
-                            <i class="bi bi-gear display-1 text-muted"></i>
-                            <h4 class="mt-3">系统设置功能</h4>
-                            <p class="text-muted">此功能正在开发中，敬请期待...</p>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h6>自定义 Logo 上传</h6>
+                                <p class="text-muted">支持 PNG、JPG、JPEG 格式，建议尺寸为 120x120 像素，文件大小不超过 2MB</p>
+                                <form id="logo-upload-form" enctype="multipart/form-data">
+                                    <div class="input-group mb-3">
+                                        <input type="file" class="form-control" id="logo-file" accept=".png,.jpg,.jpeg,.gif" required>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="bi bi-upload"></i> 上传 Logo
+                                        </button>
+                                    </div>
+                                </form>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetLogo()">
+                                    <i class="bi bi-arrow-clockwise"></i> 恢复默认 Logo
+                                </button>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <h6>当前 Logo 预览</h6>
+                                <div class="border rounded p-3 bg-light">
+                                    <img id="logo-preview" src="/static/logo.png" alt="当前Logo" style="max-width: 120px; max-height: 120px; border-radius: 10px;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 其他系统设置 -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-gear"></i> 其他设置
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center py-3">
+                            <i class="bi bi-gear display-4 text-muted"></i>
+                            <h5 class="mt-3">更多系统设置</h5>
+                            <p class="text-muted">其他系统配置功能正在开发中...</p>
                         </div>
                     </div>
                 </div>
@@ -946,7 +1037,267 @@
         // 页面加载时初始化端口建议
         document.addEventListener('DOMContentLoaded', function() {
             updatePortSuggestion();
+            
+            // 初始化代理列表
+            if (document.getElementById('proxy-list')) {
+                refreshProxyList();
+            }
+            
+            // 初始化logo预览
+            loadLogoPreview();
+            
+            // 绑定代理表单提交事件
+            const proxyForm = document.getElementById('proxy-form');
+            if (proxyForm) {
+                proxyForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    addProxy();
+                });
+            }
+            
+            // 绑定logo上传表单事件
+            const logoForm = document.getElementById('logo-upload-form');
+            if (logoForm) {
+                logoForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    uploadLogo();
+                });
+            }
         });
+
+        // Logo管理功能
+        function loadLogoPreview() {
+            fetch('/api/settings')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const logoPreview = document.getElementById('logo-preview');
+                    if (logoPreview) {
+                        logoPreview.src = '/static/' + data.data.custom_logo;
+                    }
+                }
+            })
+            .catch(err => console.error('加载logo预览失败:', err));
+        }
+
+        function uploadLogo() {
+            const fileInput = document.getElementById('logo-file');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('请选择文件');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('logo', file);
+            
+            fetch('/upload_logo', {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Logo上传成功！');
+                    loadLogoPreview();
+                    fileInput.value = '';
+                } else {
+                    alert('上传失败：' + data.error);
+                }
+            })
+            .catch(err => {
+                alert('上传失败，请重试');
+                console.error('Logo上传错误:', err);
+            });
+        }
+
+        function resetLogo() {
+            if (!confirm('确认要恢复默认Logo吗？')) return;
+            
+            fetch('/reset_logo', {
+                method: 'POST'
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert('已恢复默认Logo');
+                    loadLogoPreview();
+                } else {
+                    alert('恢复失败：' + data.error);
+                }
+            })
+            .catch(err => {
+                alert('恢复失败，请重试');
+                console.error('恢复Logo错误:', err);
+            });
+        }
+
+        // 代理池管理功能
+        function refreshProxyList() {
+            const proxyListContainer = document.getElementById('proxy-list');
+            if (!proxyListContainer) return;
+            
+            proxyListContainer.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">加载中...</span></div></div>';
+            
+            fetch('/api/proxy')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    renderProxyList(data.data);
+                } else {
+                    proxyListContainer.innerHTML = '<div class="alert alert-danger">加载失败：' + data.error + '</div>';
+                }
+            })
+            .catch(err => {
+                proxyListContainer.innerHTML = '<div class="alert alert-danger">加载失败，请重试</div>';
+                console.error('加载代理列表错误:', err);
+            });
+        }
+
+        function renderProxyList(proxies) {
+            const proxyListContainer = document.getElementById('proxy-list');
+            
+            if (proxies.length === 0) {
+                proxyListContainer.innerHTML = '<div class="text-muted text-center py-3">暂无代理，请添加代理服务器</div>';
+                return;
+            }
+            
+            let html = `
+                <table class="table table-striped align-middle">
+                    <thead>
+                        <tr>
+                            <th>名称</th>
+                            <th>地址:端口</th>
+                            <th>协议</th>
+                            <th>认证</th>
+                            <th>状态</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            proxies.forEach(proxy => {
+                const hasAuth = proxy.username && proxy.password;
+                const statusBadge = proxy.is_active ? 
+                    '<span class="badge bg-success">启用</span>' : 
+                    '<span class="badge bg-secondary">禁用</span>';
+                const createdAt = new Date(proxy.created_at).toLocaleString('zh-CN');
+                
+                html += `
+                    <tr>
+                        <td>${proxy.name}</td>
+                        <td>${proxy.host}:${proxy.port}</td>
+                        <td><span class="badge bg-${proxy.protocol === 'HTTP' ? 'primary' : 'info'}">${proxy.protocol}</span></td>
+                        <td>${hasAuth ? '<i class="bi bi-shield-check text-success" title="有认证"></i>' : '<i class="bi bi-shield-x text-muted" title="无认证"></i>'}</td>
+                        <td>${statusBadge}</td>
+                        <td>${createdAt}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary" onclick="editProxy(${proxy.id})" title="编辑">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-outline-${proxy.is_active ? 'warning' : 'success'}" onclick="toggleProxy(${proxy.id})" title="${proxy.is_active ? '禁用' : '启用'}">
+                                    <i class="bi bi-${proxy.is_active ? 'pause' : 'play'}"></i>
+                                </button>
+                                <button class="btn btn-outline-danger" onclick="deleteProxy(${proxy.id})" title="删除">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            proxyListContainer.innerHTML = html;
+        }
+
+        function addProxy() {
+            const formData = {
+                name: document.getElementById('proxy-name').value,
+                host: document.getElementById('proxy-host').value,
+                port: document.getElementById('proxy-port').value,
+                protocol: document.getElementById('proxy-protocol').value,
+                username: document.getElementById('proxy-username').value,
+                password: document.getElementById('proxy-password').value
+            };
+            
+            if (!formData.name || !formData.host || !formData.port) {
+                alert('请填写必填字段');
+                return;
+            }
+            
+            fetch('/api/proxy', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(formData)
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert('代理添加成功！');
+                    resetProxyForm();
+                    refreshProxyList();
+                } else {
+                    alert('添加失败：' + data.error);
+                }
+            })
+            .catch(err => {
+                alert('添加失败，请重试');
+                console.error('添加代理错误:', err);
+            });
+        }
+
+        function resetProxyForm() {
+            document.getElementById('proxy-form').reset();
+        }
+
+        function editProxy(proxyId) {
+            // 这里可以实现编辑功能，暂时用简单的提示
+            alert('编辑功能正在开发中，敬请期待');
+        }
+
+        function toggleProxy(proxyId) {
+            fetch(`/api/proxy/${proxyId}/toggle`, {
+                method: 'POST'
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    refreshProxyList();
+                } else {
+                    alert('操作失败：' + data.error);
+                }
+            })
+            .catch(err => {
+                alert('操作失败，请重试');
+                console.error('切换代理状态错误:', err);
+            });
+        }
+
+        function deleteProxy(proxyId) {
+            if (!confirm('确认删除该代理？')) return;
+            
+            fetch(`/api/proxy/${proxyId}`, {
+                method: 'DELETE'
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert('代理删除成功');
+                    refreshProxyList();
+                } else {
+                    alert('删除失败：' + data.error);
+                }
+            })
+            .catch(err => {
+                alert('删除失败，请重试');
+                console.error('删除代理错误:', err);
+            });
+        }
     </script>
 </body>
 </html>

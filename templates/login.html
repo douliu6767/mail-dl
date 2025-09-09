@@ -5,25 +5,162 @@
     <title>后台登录</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
     <style>
-        body { background: #f8f9fa; padding: 60px; }
-        .login-box { max-width: 400px; margin: auto; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px #ddd; }
+        body { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 60px 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .login-box { 
+            max-width: 450px; 
+            margin: auto; 
+            background: rgba(255, 255, 255, 0.95); 
+            padding: 40px; 
+            border-radius: 20px; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1), 0 5px 15px rgba(0,0,0,0.07);
+            backdrop-filter: blur(10px);
+        }
+        .logo-container {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            max-width: 120px;
+            max-height: 120px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .login-title {
+            text-align: center;
+            color: #333;
+            font-weight: 300;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        .form-control {
+            border-radius: 12px;
+            border: 2px solid #e9ecef;
+            padding: 15px 20px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.9);
+        }
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+            background: rgba(255, 255, 255, 1);
+        }
+        .form-control::placeholder {
+            color: #6c757d;
+            opacity: 0.8;
+        }
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 12px;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+        .btn-primary:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        .btn-primary:hover:before {
+            left: 100%;
+        }
+        .alert {
+            border-radius: 12px;
+            border: none;
+            padding: 15px 20px;
+        }
+        .alert-danger {
+            background: rgba(248, 215, 218, 0.9);
+            color: #721c24;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        .input-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6c757d;
+            z-index: 5;
+        }
+        .form-control.with-icon {
+            padding-left: 45px;
+        }
+        .footer-text {
+            text-align: center;
+            margin-top: 30px;
+            color: #6c757d;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
     <div class="login-box">
-        <h2 class="mb-4 text-center">管理员登录</h2>
+        <div class="logo-container">
+            <img src="/static/logo.png" alt="Logo" class="logo" onerror="this.style.display='none'">
+        </div>
+        <h2 class="login-title">🔐 管理员登录</h2>
         {% if error %}
-        <div class="alert alert-danger">{{ error }}</div>
+        <div class="alert alert-danger">
+            <strong>❌ 登录失败：</strong> {{ error }}
+        </div>
         {% endif %}
         <form method="post" action="/login">
-            <div class="mb-3">
-                <input type="text" class="form-control" name="username" placeholder="用户名" required>
+            <div class="input-group">
+                <div class="position-relative">
+                    <span class="input-icon">👤</span>
+                    <input type="text" class="form-control with-icon" name="username" 
+                           placeholder="请输入用户名" required autocomplete="username">
+                </div>
             </div>
-            <div class="mb-3">
-                <input type="password" class="form-control" name="password" placeholder="密码" required>
+            <div class="input-group">
+                <div class="position-relative">
+                    <span class="input-icon">🔒</span>
+                    <input type="password" class="form-control with-icon" name="password" 
+                           placeholder="请输入密码" required autocomplete="current-password">
+                </div>
             </div>
-            <button type="submit" class="btn btn-primary w-100">登录</button>
+            <button type="submit" class="btn btn-primary w-100">
+                🚀 立即登录
+            </button>
         </form>
+        <div class="footer-text">
+            邮箱管理系统 · 安全登录
+        </div>
     </div>
+    
+    <script>
+        // 添加一些交互效果
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputs = document.querySelectorAll('.form-control');
+            inputs.forEach(input => {
+                input.addEventListener('focus', function() {
+                    this.parentElement.style.transform = 'scale(1.02)';
+                });
+                input.addEventListener('blur', function() {
+                    this.parentElement.style.transform = 'scale(1)';
+                });
+            });
+        });
+    </script>
 </body>
 </html>

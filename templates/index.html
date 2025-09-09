@@ -3,36 +3,151 @@
 <head>
     <meta charset="UTF-8">
     <title>收取邮箱验证码</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="/static/style.css">
+    <style>
+        body { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 60px 20px;
+        }
+        .main-container { 
+            max-width: 600px; 
+            margin: auto; 
+            background: rgba(255, 255, 255, 0.95); 
+            padding: 40px; 
+            border-radius: 15px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .page-title {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-weight: 300;
+        }
+        .form-control {
+            border-radius: 8px;
+            border: 2px solid #e9ecef;
+            padding: 12px 15px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 8px;
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        #result {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 8px;
+            display: none;
+        }
+        .error-result {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .success-result {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .verification-code {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 8px;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
 </head>
 <body>
-    <h2>收取邮箱邮件</h2>
-    <form id="mailForm">
-        <label>选择邮箱账号：
-            <select name="user" id="user">
-                {% for user in accounts %}
-                    <option value="{{ user }}">{{ user }}</option>
-                {% endfor %}
-            </select>
-        </label>
-        <button type="submit">获取最新邮件</button>
-    </form>
-    <div id="result"></div>
+    <div class="main-container">
+        <h2 class="page-title">📧 收取邮箱邮件</h2>
+        <form id="mailForm">
+            <div class="mb-3">
+                <label for="user" class="form-label">邮箱账号</label>
+                <input type="email" class="form-control" name="user" id="user" 
+                       placeholder="请输入邮箱地址 (例如: user@example.com)" required>
+            </div>
+            <div class="text-center">
+                <button type="submit" class="btn btn-primary">
+                    获取最新邮件
+                </button>
+            </div>
+        </form>
+        <div id="result"></div>
+    </div>
     <script>
         document.getElementById('mailForm').onsubmit = async function(e) {
             e.preventDefault();
-            let formData = new FormData(this);
-            let resp = await fetch('/getmail', {
-                method: 'POST',
-                body: formData
-            });
-            let data = await resp.json();
-            let result = document.getElementById('result');
-            if(data.error) {
-                result.innerHTML = `<b>错误：</b> ${data.error}`;
-            } else {
-                result.innerHTML = `<b>主题：</b> ${data.subject}<br><b>内容：</b><pre>${data.body}</pre>` +
-                    (data.code ? `<b>验证码：</b> <span style="color:red;">${data.code}</span>` : "");
+            
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const resultDiv = document.getElementById('result');
+            
+            // 显示加载状态
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 获取中...';
+            
+            try {
+                let formData = new FormData(this);
+                let resp = await fetch('/getmail', {
+                    method: 'POST',
+                    body: formData
+                });
+                let data = await resp.json();
+                
+                resultDiv.style.display = 'block';
+                
+                if(data.error) {
+                    resultDiv.className = 'error-result';
+                    resultDiv.innerHTML = `<strong>❌ 错误：</strong> ${data.error}`;
+                } else {
+                    resultDiv.className = 'success-result';
+                    let content = `<strong>📧 主题：</strong> ${data.subject}<br><br>`;
+                    content += `<strong>📄 内容：</strong><pre>${data.body}</pre>`;
+                    
+                    if(data.code) {
+                        content += `<div class="verification-code">🔐 验证码：${data.code}</div>`;
+                    }
+                    
+                    resultDiv.innerHTML = content;
+                }
+            } catch (error) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'error-result';
+                resultDiv.innerHTML = `<strong>❌ 错误：</strong> 网络请求失败，请稍后重试`;
+            } finally {
+                // 恢复按钮状态
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '获取最新邮件';
             }
         };
     </script>

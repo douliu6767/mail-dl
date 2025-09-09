@@ -44,7 +44,7 @@ def getmail():
     accounts = load_accounts()
     account = next((a for a in accounts if a["user"] == user), None)
     if not account:
-        return jsonify({"error": "未找到该账号"})
+        return jsonify({"error": "邮箱不存在"})
     try:
         # 获取协议、端口和SSL设置，提供默认值以支持旧账号
         protocol = account.get("protocol", "IMAP")
@@ -191,7 +191,8 @@ def del_account():
     accounts = load_accounts()
     accounts = [a for a in accounts if a["user"] != user]
     save_accounts(accounts)
-    return redirect(url_for("admin"))
+    # 不重定向到首页，而是重新渲染当前页面
+    return render_template("admin.html", accounts=load_accounts(), error=None, success="账号删除成功！", username=session.get('username'))
 
 # 新增：测试账号连接
 @app.route("/test_account", methods=["POST"])

@@ -420,6 +420,10 @@ def logout():
 def admin():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
+    
+    # Get the active section from request
+    active_section = request.args.get('section', 'dashboard')
+    
     if request.method == "POST":
         name = request.form.get("name", "")
         host = request.form.get("host", "")
@@ -431,7 +435,8 @@ def admin():
         
         if not (host and user and password):
             return render_template("admin.html", accounts=load_accounts(), proxies=load_proxies(), 
-                                 error="请填写完整信息", username=session.get('username'))
+                                 error="请填写完整信息", username=session.get('username'), 
+                                 active_section='email-management')
         
         # 如果端口为空，根据协议和SSL设置默认端口
         if not port:
@@ -443,7 +448,8 @@ def admin():
         # 检查账号是否已存在
         if EmailAccount.query.filter_by(user=user).first():
             return render_template("admin.html", accounts=load_accounts(), proxies=load_proxies(), 
-                                 error="该账号已存在", username=session.get('username'))
+                                 error="该账号已存在", username=session.get('username'),
+                                 active_section='email-management')
         
         # 创建新账号
         try:
@@ -460,20 +466,23 @@ def admin():
             db.session.commit()
             
             return render_template("admin.html", accounts=load_accounts(), proxies=load_proxies(), 
-                                 success="账号添加成功！", username=session.get('username'))
+                                 success="账号添加成功！", username=session.get('username'),
+                                 active_section='email-management')
         except Exception as e:
             db.session.rollback()
             return render_template("admin.html", accounts=load_accounts(), proxies=load_proxies(), 
-                                 error=f"添加失败: {str(e)}", username=session.get('username'))
+                                 error=f"添加失败: {str(e)}", username=session.get('username'),
+                                 active_section='email-management')
     
     return render_template("admin.html", accounts=load_accounts(), proxies=load_proxies(), 
-                         username=session.get('username'))
+                         username=session.get('username'), active_section=active_section)
 
 @app.route("/del_account", methods=["POST"])
 def del_account():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
     user = request.form.get("user")
+    redirect_section = request.form.get("redirect_section", "email-management")
     
     try:
         account = EmailAccount.query.filter_by(user=user).first()
@@ -481,14 +490,17 @@ def del_account():
             db.session.delete(account)
             db.session.commit()
             return render_template("admin.html", accounts=load_accounts(), proxies=load_proxies(), 
-                                 success="账号删除成功！", username=session.get('username'))
+                                 success="账号删除成功！", username=session.get('username'),
+                                 active_section=redirect_section)
         else:
             return render_template("admin.html", accounts=load_accounts(), proxies=load_proxies(), 
-                                 error="账号不存在", username=session.get('username'))
+                                 error="账号不存在", username=session.get('username'),
+                                 active_section=redirect_section)
     except Exception as e:
         db.session.rollback()
         return render_template("admin.html", accounts=load_accounts(), proxies=load_proxies(), 
-                             error=f"删除失败: {str(e)}", username=session.get('username'))
+                             error=f"删除失败: {str(e)}", username=session.get('username'),
+                             active_section=redirect_section)
 
 # 新增：编辑账号
 @app.route("/edit_account", methods=["POST"])
@@ -614,11 +626,12 @@ def batch_delete():
         return jsonify({"success": False, "error": "未登录"})
     try:
         users = request.json.get("users", [])
-        accounts = load_accounts()
-        accounts = [a for a in accounts if a["user"] not in users]
-        save_accounts(accounts)
-        return jsonify({"success": True})
+        # Delete from database
+        EmailAccount.query.filter(EmailAccount.user.in_(users)).delete(synchronize_session=False)
+        db.session.commit()
+        return jsonify({"success": True, "message": "批量删除成功"})
     except Exception as e:
+        db.session.rollback()
         return jsonify({"success": False, "error": str(e)})
 
 # 新增：代理池管理
@@ -1376,6 +1389,45 @@ def upload_logo():
     except Exception as e:
         return jsonify({"success": False, "error": f"上传失败：{str(e)}"})
 
+@app.route("/update_admin_account", methods=["POST"])
+def update_admin_account():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if not username:
+            return jsonify({"success": False, "error": "用户名不能为空"})
+        
+        # 获取当前管理员用户
+        current_user = AdminUser.query.filter_by(username=session['username']).first()
+        if not current_user:
+            return jsonify({"success": False, "error": "当前用户不存在"})
+        
+        # 更新用户名
+        current_user.username = username
+        
+        # 如果提供了新密码，则更新密码
+        if password:
+            current_user.set_password(password)
+        
+        db.session.commit()
+        
+        # 更新session中的用户名
+        session['username'] = username
+        
+        message = "账号信息更新成功"
+        if password:
+            message += "，密码已更改"
+        
+        return jsonify({"success": True, "message": message})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": f"更新失败：{str(e)}"})
+
+@app.route("/get_logo")
 @app.route("/get_logo")
 def get_logo():
     """获取当前logo文件"""

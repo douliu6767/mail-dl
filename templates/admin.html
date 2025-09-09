@@ -236,17 +236,17 @@
     <!-- Sidebar Navigation -->
     <div class="sidebar">
         <div class="sidebar-header">
-            <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" class="logo" alt="LOGO">
+            <img src="/get_logo" class="logo" alt="LOGO" id="sidebar-logo">
             <h4>管理后台</h4>
         </div>
         <ul class="sidebar-menu">
-            <li><a href="#" data-section="dashboard" class="nav-link active"><i class="bi bi-house"></i>首页</a></li>
-            <li><a href="#" data-section="email-management" class="nav-link"><i class="bi bi-envelope"></i>邮箱管理</a></li>
-            <li><a href="#" data-section="card-management" class="nav-link"><i class="bi bi-credit-card"></i>卡密管理</a></li>
-            <li><a href="#" data-section="proxy-pool" class="nav-link"><i class="bi bi-globe"></i>代理池</a></li>
-            <li><a href="#" data-section="inbox-logs" class="nav-link"><i class="bi bi-list-ul"></i>收件日志</a></li>
-            <li><a href="#" data-section="card-logs" class="nav-link"><i class="bi bi-journal-text"></i>卡密日志</a></li>
-            <li><a href="#" data-section="system-settings" class="nav-link"><i class="bi bi-gear"></i>系统设置</a></li>
+            <li><a href="#" data-section="dashboard" class="nav-link {% if active_section == 'dashboard' %}active{% endif %}"><i class="bi bi-house"></i>首页</a></li>
+            <li><a href="#" data-section="email-management" class="nav-link {% if active_section == 'email-management' %}active{% endif %}"><i class="bi bi-envelope"></i>邮箱管理</a></li>
+            <li><a href="#" data-section="card-management" class="nav-link {% if active_section == 'card-management' %}active{% endif %}"><i class="bi bi-credit-card"></i>卡密管理</a></li>
+            <li><a href="#" data-section="proxy-pool" class="nav-link {% if active_section == 'proxy-pool' %}active{% endif %}"><i class="bi bi-globe"></i>代理池</a></li>
+            <li><a href="#" data-section="inbox-logs" class="nav-link {% if active_section == 'inbox-logs' %}active{% endif %}"><i class="bi bi-list-ul"></i>收件日志</a></li>
+            <li><a href="#" data-section="card-logs" class="nav-link {% if active_section == 'card-logs' %}active{% endif %}"><i class="bi bi-journal-text"></i>卡密日志</a></li>
+            <li><a href="#" data-section="system-settings" class="nav-link {% if active_section == 'system-settings' %}active{% endif %}"><i class="bi bi-gear"></i>系统设置</a></li>
         </ul>
     </div>
 
@@ -276,7 +276,7 @@
             {% endif %}
 
             <!-- Dashboard Section -->
-            <div id="dashboard" class="content-section active">
+            <div id="dashboard" class="content-section {% if active_section == 'dashboard' or not active_section %}active{% endif %}">
                 <div class="row">
                     <div class="col-lg-3 col-md-6 mb-4">
                         <div class="card">
@@ -336,7 +336,7 @@
             </div>
 
             <!-- Email Management Section -->
-            <div id="email-management" class="content-section">
+            <div id="email-management" class="content-section {% if active_section == 'email-management' %}active{% endif %}">
                 <!-- 导入导出操作 -->
                 <div class="mb-3">
                     <button type="button" class="btn btn-success me-2" onclick="exportAccounts()">导出账号</button>
@@ -354,7 +354,7 @@
                         <i class="bi bi-plus-circle"></i> 添加新邮箱账号
                     </div>
                     <div class="card-body">
-                        <form method="post" action="/admin">
+                        <form method="post" action="/admin?section=email-management">
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label class="form-label">备注名称</label>
@@ -448,6 +448,7 @@
                                     <td>
                                         <form method="post" action="/del_account" style="display:inline;">
                                             <input type="hidden" name="user" value="{{ acc.user }}">
+                                            <input type="hidden" name="redirect_section" value="email-management">
                                             <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('确认删除该账号？');">删除</button>
                                         </form>
                                         <button type="button" class="btn btn-outline-success btn-sm ms-1" onclick="testAccount('{{ acc.user }}', this)">测试连接</button>
@@ -464,23 +465,69 @@
                 </div>
             </div>
 
-            <!-- Other sections for future features -->
-            <div id="card-management" class="content-section">
-                <div class="card">
+            <!-- Card Management Section -->
+            <div id="card-management" class="content-section {% if active_section == 'card-management' %}active{% endif %}">
+                <!-- 卡密操作按钮 -->
+                <div class="mb-3">
+                    <button type="button" class="btn btn-success me-2" onclick="showAddCardModal()">添加卡密</button>
+                    <button type="button" class="btn btn-info me-2" onclick="showImportCardModal()">批量导入</button>
+                    <button type="button" class="btn btn-warning me-2" onclick="exportCards()">导出卡密</button>
+                    <button type="button" class="btn btn-danger" onclick="deleteSelectedCards()">批量删除</button>
+                </div>
+
+                <!-- 卡密搜索过滤 -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <input type="text" class="form-control" id="card-search" placeholder="搜索卡密编号或名称...">
+                            </div>
+                            <div class="col-md-2">
+                                <select class="form-select" id="card-status-filter">
+                                    <option value="">全部状态</option>
+                                    <option value="active">可用</option>
+                                    <option value="used_up">已用完</option>
+                                    <option value="expired">已过期</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-primary" onclick="searchCards()">搜索</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 卡密列表 -->
+                <div class="card mb-4">
                     <div class="card-header">
-                        <i class="bi bi-credit-card"></i> 卡密管理
+                        <i class="bi bi-credit-card"></i> 卡密列表
                     </div>
                     <div class="card-body">
-                        <div class="text-center py-5">
-                            <i class="bi bi-credit-card display-1 text-muted"></i>
-                            <h4 class="mt-3">卡密管理功能</h4>
-                            <p class="text-muted">此功能正在开发中，敬请期待...</p>
+                        <div class="table-responsive">
+                            <table class="table table-striped align-middle" id="cards-table">
+                                <thead>
+                                    <tr>
+                                        <th><input type="checkbox" id="check-all-cards" onclick="toggleSelectAllCards(this)"></th>
+                                        <th>卡密编号</th>
+                                        <th>名称</th>
+                                        <th>可用次数</th>
+                                        <th>已用次数</th>
+                                        <th>状态</th>
+                                        <th>过期时间</th>
+                                        <th>专属链接</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- 卡密数据将通过JavaScript动态加载 -->
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div id="proxy-pool" class="content-section">
+            <div id="proxy-pool" class="content-section {% if active_section == 'proxy-pool' %}active{% endif %}">
                 <!-- 代理操作按钮 -->
                 <div class="mb-3">
                     <button type="button" class="btn btn-success me-2" onclick="showAddProxyModal()">添加代理</button>
@@ -570,7 +617,121 @@
                 </div>
             </div>
 
-            <div id="inbox-logs" class="content-section">
+            <!-- 添加卡密模态框 -->
+            <div class="modal fade" id="addCardModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">添加卡密</h5>
+                            <button type="button" class="btn-close" onclick="hideAddCardModal()"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="add-card-form">
+                                <div class="mb-3">
+                                    <label for="card-code" class="form-label">卡密编号 *</label>
+                                    <input type="text" class="form-control" id="card-code" name="code" required
+                                           placeholder="输入卡密编号或点击生成">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="generateCardCode()">随机生成</button>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="card-name" class="form-label">卡密名称</label>
+                                    <input type="text" class="form-control" id="card-name" name="name" 
+                                           placeholder="可选的备注名称">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="card-usage-limit" class="form-label">可用次数 *</label>
+                                    <input type="number" class="form-control" id="card-usage-limit" name="usage_limit" 
+                                           value="1" min="1" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="card-expires-at" class="form-label">过期时间</label>
+                                    <input type="datetime-local" class="form-control" id="card-expires-at" name="expires_at">
+                                    <div class="form-text">留空表示永不过期</div>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" onclick="hideAddCardModal()">取消</button>
+                            <button type="button" class="btn btn-primary" onclick="addCard()">添加卡密</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 编辑卡密模态框 -->
+            <div class="modal fade" id="editCardModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">编辑卡密</h5>
+                            <button type="button" class="btn-close" onclick="hideEditCardModal()"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="edit-card-form">
+                                <input type="hidden" id="edit-card-id" name="card_id">
+                                <div class="mb-3">
+                                    <label for="edit-card-code" class="form-label">卡密编号 *</label>
+                                    <input type="text" class="form-control" id="edit-card-code" name="code" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="edit-card-name" class="form-label">卡密名称</label>
+                                    <input type="text" class="form-control" id="edit-card-name" name="name">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="edit-card-usage-limit" class="form-label">可用次数 *</label>
+                                    <input type="number" class="form-control" id="edit-card-usage-limit" name="usage_limit" min="1" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="edit-card-expires-at" class="form-label">过期时间</label>
+                                    <input type="datetime-local" class="form-control" id="edit-card-expires-at" name="expires_at">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="edit-card-status" class="form-label">状态</label>
+                                    <select class="form-select" id="edit-card-status" name="status">
+                                        <option value="active">可用</option>
+                                        <option value="used_up">已用完</option>
+                                        <option value="expired">已过期</option>
+                                    </select>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" onclick="hideEditCardModal()">取消</button>
+                            <button type="button" class="btn btn-primary" onclick="updateCard()">保存更改</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 批量导入卡密模态框 -->
+            <div class="modal fade" id="importCardModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">批量导入卡密</h5>
+                            <button type="button" class="btn-close" onclick="hideImportCardModal()"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="import-card-file" class="form-label">选择CSV文件</label>
+                                <input type="file" class="form-control" id="import-card-file" accept=".csv">
+                                <div class="form-text">CSV格式：编号,名称,可用次数,过期时间(可选)</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">或直接输入（每行一个卡密）</label>
+                                <textarea class="form-control" id="import-card-text" rows="10" 
+                                          placeholder="输入卡密编号，每行一个，格式：编号,名称,次数,过期时间"></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" onclick="hideImportCardModal()">取消</button>
+                            <button type="button" class="btn btn-primary" onclick="importCards()">导入卡密</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="inbox-logs" class="content-section {% if active_section == 'inbox-logs' %}active{% endif %}">
                 <div class="card">
                     <div class="card-header">
                         <i class="bi bi-list-ul"></i> 收件日志
@@ -585,7 +746,7 @@
                 </div>
             </div>
 
-            <div id="card-logs" class="content-section">
+            <div id="card-logs" class="content-section {% if active_section == 'card-logs' %}active{% endif %}">
                 <div class="card">
                     <div class="card-header">
                         <i class="bi bi-journal-text"></i> 卡密日志
@@ -600,7 +761,7 @@
                 </div>
             </div>
 
-            <div id="system-settings" class="content-section">
+            <div id="system-settings" class="content-section {% if active_section == 'system-settings' %}active{% endif %}">
                 <div class="card">
                     <div class="card-header">
                         <i class="bi bi-gear"></i> 系统设置
@@ -638,6 +799,47 @@
                                             </form>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 账号管理 -->
+                        <div class="mb-4">
+                            <h5><i class="bi bi-person-gear"></i> 管理员账号管理</h5>
+                            <div class="card">
+                                <div class="card-body">
+                                    <form id="admin-account-form">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="admin-username" class="form-label">管理员账号</label>
+                                                    <input type="text" class="form-control" id="admin-username" name="username" 
+                                                           value="{{ username }}" required>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="admin-password" class="form-label">新密码</label>
+                                                    <input type="password" class="form-control" id="admin-password" name="password" 
+                                                           placeholder="不修改请留空">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="admin-password-confirm" class="form-label">确认新密码</label>
+                                                    <input type="password" class="form-control" id="admin-password-confirm" name="password_confirm" 
+                                                           placeholder="不修改请留空">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6 d-flex align-items-end">
+                                                <button type="submit" class="btn btn-primary">
+                                                    <i class="bi bi-save"></i> 保存更改
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </form>
                                 </div>
                             </div>
                         </div>
@@ -1398,7 +1600,10 @@
                             showAlert(data.message, 'success');
                             // 更新当前Logo显示
                             const currentLogo = document.getElementById('current-logo');
-                            currentLogo.src = '/get_logo?' + new Date().getTime(); // 添加时间戳避免缓存
+                            const sidebarLogo = document.getElementById('sidebar-logo');
+                            const timestamp = new Date().getTime();
+                            currentLogo.src = '/get_logo?' + timestamp; // 添加时间戳避免缓存
+                            sidebarLogo.src = '/get_logo?' + timestamp; // 同时更新侧边栏logo
                             // 清空文件选择
                             document.getElementById('logo-file').value = '';
                         } else {
@@ -1407,6 +1612,45 @@
                     })
                     .catch(error => {
                         showAlert('上传失败：' + error.message, 'danger');
+                    });
+                });
+            }
+            
+            // 管理员账号管理功能
+            const adminAccountForm = document.getElementById('admin-account-form');
+            if (adminAccountForm) {
+                adminAccountForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const formData = new FormData(this);
+                    const password = formData.get('password');
+                    const passwordConfirm = formData.get('password_confirm');
+                    
+                    // 如果输入了新密码，验证密码一致性
+                    if (password && password !== passwordConfirm) {
+                        showAlert('两次输入的密码不一致', 'danger');
+                        return;
+                    }
+                    
+                    fetch('/update_admin_account', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showAlert(data.message, 'success');
+                            // 如果更改了密码，清空密码框
+                            if (password) {
+                                document.getElementById('admin-password').value = '';
+                                document.getElementById('admin-password-confirm').value = '';
+                            }
+                        } else {
+                            showAlert(data.error, 'danger');
+                        }
+                    })
+                    .catch(error => {
+                        showAlert('保存失败：' + error.message, 'danger');
                     });
                 });
             }

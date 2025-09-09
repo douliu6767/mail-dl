@@ -24,6 +24,7 @@
             color: white;
             z-index: 1000;
             transition: all 0.3s ease;
+            overflow-y: auto;
         }
         
         .sidebar-header {
@@ -36,6 +37,7 @@
         .sidebar-header .logo {
             height: 32px;
             margin-right: 10px;
+            border-radius: 4px;
         }
         
         .sidebar-header h4 {
@@ -109,6 +111,7 @@
             border-radius: 10px; 
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             border: none;
+            margin-bottom: 1.5rem;
         }
         
         .card-header {
@@ -124,12 +127,6 @@
             transition: background .2s; 
         }
         
-        .welcome { 
-            font-size: 1.2rem; 
-            font-weight: bold; 
-            color: #2c3e50; 
-        }
-        
         .btn-primary {
             background: #3498db;
             border-color: #3498db;
@@ -140,9 +137,63 @@
             border-color: #2980b9;
         }
         
-        /* Dark Mode Toggle */
-        .btn-darkmode { 
-            margin-left: 10px; 
+        /* Stats Cards */
+        .stats-card {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .stats-card h3 {
+            font-size: 2rem;
+            margin: 0;
+            font-weight: 700;
+        }
+        
+        .stats-card p {
+            margin: 0;
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        /* Alert Styles */
+        .alert {
+            border-radius: 8px;
+            border: none;
+            margin-bottom: 1rem;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+        
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+        
+        /* Loading spinner */
+        .spinner-border-sm {
+            width: 1rem;
+            height: 1rem;
+        }
+        
+        /* Modal Styles */
+        .modal-content {
+            border-radius: 10px;
+            border: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .modal-header {
+            background: #3498db;
+            color: white;
+            border-radius: 10px 10px 0 0;
         }
         
         /* Responsive */
@@ -160,75 +211,24 @@
             }
         }
         
-        /* Modal Styles */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1050;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0,0,0,0.5);
+        /* Dark mode styles */
+        .dark-mode {
+            background: #1a1a1a;
+            color: #e0e0e0;
         }
         
-        .modal.show {
-            display: block;
+        .dark-mode .card {
+            background: #2d2d2d;
+            color: #e0e0e0;
         }
         
-        .modal-dialog {
-            position: relative;
-            width: auto;
-            margin: 1.75rem auto;
-            max-width: 500px;
+        .dark-mode .content-header {
+            background: #2d2d2d;
+            border-bottom-color: #444;
         }
         
-        .modal-content {
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-            background-color: #fff;
-            border-radius: 0.5rem;
-            box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
-        }
-        
-        .modal-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 1rem;
-            border-bottom: 1px solid #dee2e6;
-            border-radius: 0.5rem 0.5rem 0 0;
-        }
-        
-        .modal-body {
-            position: relative;
-            flex: 1 1 auto;
-            padding: 1rem;
-        }
-        
-        .modal-footer {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 0.5rem;
-            padding: 1rem;
-            border-top: 1px solid #dee2e6;
-            border-radius: 0 0 0.5rem 0.5rem;
-        }
-        
-        .btn-close {
-            background: none;
-            border: none;
-            font-size: 1.25rem;
-            cursor: pointer;
-            opacity: 0.5;
-        }
-        
-        .btn-close:hover {
-            opacity: 1;
+        .dark-mode .table-striped>tbody>tr:hover {
+            background-color: #3a3a3a;
         }
     </style>
 </head>
@@ -236,290 +236,215 @@
     <!-- Sidebar Navigation -->
     <div class="sidebar">
         <div class="sidebar-header">
-            <img src="/get_logo" class="logo" alt="LOGO" id="sidebar-logo">
+            <img src="/get_logo" class="logo" alt="LOGO" id="sidebar-logo" onerror="this.style.display='none'">
             <h4>管理后台</h4>
         </div>
         <ul class="sidebar-menu">
-            <li><a href="#" data-section="dashboard" class="nav-link {% if active_section == 'dashboard' %}active{% endif %}"><i class="bi bi-house"></i>首页</a></li>
-            <li><a href="#" data-section="email-management" class="nav-link {% if active_section == 'email-management' %}active{% endif %}"><i class="bi bi-envelope"></i>邮箱管理</a></li>
-            <li><a href="#" data-section="card-management" class="nav-link {% if active_section == 'card-management' %}active{% endif %}"><i class="bi bi-credit-card"></i>卡密管理</a></li>
-            <li><a href="#" data-section="proxy-pool" class="nav-link {% if active_section == 'proxy-pool' %}active{% endif %}"><i class="bi bi-globe"></i>代理池</a></li>
-            <li><a href="#" data-section="inbox-logs" class="nav-link {% if active_section == 'inbox-logs' %}active{% endif %}"><i class="bi bi-list-ul"></i>收件日志</a></li>
-            <li><a href="#" data-section="card-logs" class="nav-link {% if active_section == 'card-logs' %}active{% endif %}"><i class="bi bi-journal-text"></i>卡密日志</a></li>
-            <li><a href="#" data-section="system-settings" class="nav-link {% if active_section == 'system-settings' %}active{% endif %}"><i class="bi bi-gear"></i>系统设置</a></li>
+            <li><a href="#" data-section="dashboard" class="nav-link active"><i class="bi bi-house"></i>首页</a></li>
+            <li><a href="#" data-section="email-management" class="nav-link"><i class="bi bi-envelope"></i>邮箱管理</a></li>
+            <li><a href="#" data-section="card-management" class="nav-link"><i class="bi bi-credit-card"></i>卡密管理</a></li>
+            <li><a href="#" data-section="proxy-pool" class="nav-link"><i class="bi bi-globe"></i>代理池</a></li>
+            <li><a href="#" data-section="inbox-logs" class="nav-link"><i class="bi bi-list-ul"></i>收件日志</a></li>
+            <li><a href="#" data-section="card-logs" class="nav-link"><i class="bi bi-journal-text"></i>卡密日志</a></li>
+            <li><a href="#" data-section="system-settings" class="nav-link"><i class="bi bi-gear"></i>系统设置</a></li>
         </ul>
     </div>
 
-    <!-- Main Content Area -->
+    <!-- Main Content -->
     <div class="main-content">
         <!-- Header -->
         <div class="content-header">
             <div class="d-flex">
                 <div>
-                    <span class="welcome">欢迎使用邮箱账号管理后台</span>
+                    <h4 class="mb-0">欢迎使用邮箱账号管理后台</h4>
                 </div>
                 <div>
-                    <span class="me-2 text-success">管理员：{{ username }}</span>
-                    <a href="/logout" class="btn btn-outline-secondary btn-sm">退出登录</a>
-                    <button type="button" class="btn btn-dark btn-sm btn-darkmode" onclick="toggleDarkMode()">暗色模式</button>
+                    <span class="me-3">管理员：{{ username }}</span>
+                    <a href="/logout" class="btn btn-outline-danger btn-sm">退出登录</a>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="toggleDarkMode()">🌙 暗色模式</button>
                 </div>
             </div>
         </div>
 
         <!-- Page Content -->
         <div class="page-content">
-            {% if error %}
-            <div class="alert alert-danger">{{ error }}</div>
-            {% endif %}
-            {% if success %}
-            <div class="alert alert-success">{{ success }}</div>
-            {% endif %}
-
             <!-- Dashboard Section -->
-            <div id="dashboard" class="content-section {% if active_section == 'dashboard' or not active_section %}active{% endif %}">
+            <div id="dashboard" class="content-section active">
                 <div class="row">
-                    <div class="col-lg-3 col-md-6 mb-4">
-                        <div class="card">
-                            <div class="card-body text-center">
-                                <i class="bi bi-envelope h2 text-primary"></i>
-                                <h5>邮箱账号</h5>
-                                <h3 class="text-primary">{{ accounts|length }}</h3>
-                            </div>
+                    <div class="col-md-3">
+                        <div class="stats-card">
+                            <h3 id="email-count">{{ accounts|length }}</h3>
+                            <p>邮箱账号</p>
                         </div>
                     </div>
-                    <div class="col-lg-3 col-md-6 mb-4">
-                        <div class="card">
-                            <div class="card-body text-center">
-                                <i class="bi bi-credit-card h2 text-success"></i>
-                                <h5>卡密总数</h5>
-                                <h3 class="text-success">0</h3>
-                            </div>
+                    <div class="col-md-3">
+                        <div class="stats-card">
+                            <h3 id="card-count">0</h3>
+                            <p>卡密总数</p>
                         </div>
                     </div>
-                    <div class="col-lg-3 col-md-6 mb-4">
-                        <div class="card">
-                            <div class="card-body text-center">
-                                <i class="bi bi-globe h2 text-info"></i>
-                                <h5>代理节点</h5>
-                                <h3 class="text-info">{{ proxies|length }}</h3>
-                            </div>
+                    <div class="col-md-3">
+                        <div class="stats-card">
+                            <h3 id="proxy-count">{{ proxies|length }}</h3>
+                            <p>代理节点</p>
                         </div>
                     </div>
-                    <div class="col-lg-3 col-md-6 mb-4">
-                        <div class="card">
-                            <div class="card-body text-center">
-                                <i class="bi bi-list-ul h2 text-warning"></i>
-                                <h5>今日日志</h5>
-                                <h3 class="text-warning">0</h3>
-                            </div>
+                    <div class="col-md-3">
+                        <div class="stats-card">
+                            <h3 id="log-count">0</h3>
+                            <p>今日日志</p>
                         </div>
                     </div>
                 </div>
                 
                 <div class="card">
-                    <div class="card-header">
-                        <i class="bi bi-speedometer2"></i> 系统概览
-                    </div>
+                    <div class="card-header">🏠 系统概览</div>
                     <div class="card-body">
-                        <p>欢迎使用邮箱账号管理后台系统！</p>
-                        <p>您可以通过左侧导航栏访问各种功能模块：</p>
+                        <p>欢迎使用邮箱账号管理后台系统！这是一个功能完整的邮箱代理管理平台。</p>
+                        <p>系统主要功能模块：</p>
                         <ul>
-                            <li><strong>邮箱管理</strong>：管理IMAP邮箱账号，包括添加、删除、测试连接等功能</li>
-                            <li><strong>卡密管理</strong>：管理系统卡密（即将推出）</li>
-                            <li><strong>代理池</strong>：管理代理服务器池（即将推出）</li>
-                            <li><strong>收件日志</strong>：查看邮件收取日志（即将推出）</li>
-                            <li><strong>卡密日志</strong>：查看卡密使用日志（即将推出）</li>
-                            <li><strong>系统设置</strong>：配置系统参数（即将推出）</li>
+                            <li><strong>邮箱管理</strong>：管理IMAP/POP3邮箱账号，支持连接测试和批量操作</li>
+                            <li><strong>卡密管理</strong>：生成和管理访问卡密，控制系统使用权限</li>
+                            <li><strong>代理池</strong>：管理代理服务器，确保连接稳定性和匿名性</li>
+                            <li><strong>收件日志</strong>：记录所有邮件收取操作，便于审计和分析</li>
+                            <li><strong>卡密日志</strong>：追踪卡密使用情况，防止滥用</li>
+                            <li><strong>系统设置</strong>：配置系统参数，包括Logo和管理员信息</li>
                         </ul>
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> 系统已启用代理池功能，确保所有邮箱连接都通过代理进行，提高安全性。
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Email Management Section -->
-            <div id="email-management" class="content-section {% if active_section == 'email-management' %}active{% endif %}">
-                <!-- 导入导出操作 -->
-                <div class="mb-3">
-                    <button type="button" class="btn btn-success me-2" onclick="exportAccounts()">导出账号</button>
-                    <div class="d-inline-block me-2">
-                        <label class="btn btn-info">
-                            导入账号 <input type="file" style="display:none;" accept=".json" onchange="importAccounts(this)">
-                        </label>
-                    </div>
-                    <button type="button" class="btn btn-danger" onclick="deleteSelected()">批量删除</button>
-                </div>
-
-                <!-- 添加邮箱账号表单 -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <i class="bi bi-plus-circle"></i> 添加新邮箱账号
-                    </div>
-                    <div class="card-body">
-                        <form method="post" action="/admin?section=email-management">
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label">备注名称</label>
-                                    <input type="text" name="name" class="form-control" placeholder="可选备注名称" value="{{ request.form.name or '' }}">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">邮箱地址 *</label>
-                                    <input type="email" name="user" class="form-control" placeholder="example@domain.com" required value="{{ request.form.user or '' }}">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">邮箱密码 *</label>
-                                    <input type="password" name="password" class="form-control" placeholder="邮箱密码或授权码" required>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">服务器地址 *</label>
-                                    <input type="text" name="host" class="form-control" placeholder="mail.example.com" required value="{{ request.form.host or '' }}">
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">协议类型 *</label>
-                                    <select name="protocol" class="form-select" id="protocol-select" onchange="updatePortSuggestion()">
-                                        <option value="IMAP" {{ 'selected' if request.form.protocol == 'IMAP' else '' }}>IMAP</option>
-                                        <option value="POP3" {{ 'selected' if request.form.protocol == 'POP3' else '' }}>POP3</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">端口号</label>
-                                    <input type="number" name="port" class="form-control" id="port-input" placeholder="自动推荐" value="{{ request.form.port or '' }}">
-                                    <div class="form-text" id="port-suggestion">推荐端口: 993</div>
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">安全连接</label>
-                                    <div class="form-check mt-2">
-                                        <input type="checkbox" name="ssl" class="form-check-input" id="ssl-checkbox" onchange="updatePortSuggestion()" checked>
-                                        <label class="form-check-label" for="ssl-checkbox">
-                                            启用 SSL/TLS
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="col-md-3 d-grid align-self-end">
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="bi bi-plus-circle"></i> 添加账号
-                                    </button>
-                                </div>
-                            </div>
-                        </form>
+            <div id="email-management" class="content-section">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2>📧 邮箱管理</h2>
+                    <div>
+                        <button class="btn btn-success" onclick="showAddEmailModal()">
+                            <i class="bi bi-plus"></i> 添加邮箱
+                        </button>
+                        <button class="btn btn-info" onclick="exportEmails()">
+                            <i class="bi bi-download"></i> 导出
+                        </button>
+                        <button class="btn btn-danger" onclick="batchDeleteEmails()">
+                            <i class="bi bi-trash"></i> 批量删除
+                        </button>
                     </div>
                 </div>
-
-                <!-- 已添加邮箱账号列表 -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <i class="bi bi-envelope-check"></i> 已添加邮箱账号
-                    </div>
+                
+                <div id="email-alerts">
+                    {% if error %}
+                    <div class="alert alert-danger">{{ error }}</div>
+                    {% endif %}
+                    {% if success %}
+                    <div class="alert alert-success">{{ success }}</div>
+                    {% endif %}
+                </div>
+                
+                <div class="card">
                     <div class="card-body">
-                        <form id="batch-form" method="post" action="/batch_delete">
-                        <table class="table table-striped align-middle">
-                            <thead>
-                                <tr>
-                                    <th><input type="checkbox" id="check-all" onclick="toggleSelectAll(this)"></th>
-                                    <th>备注</th>
-                                    <th>邮箱地址</th>
-                                    <th>服务器</th>
-                                    <th>协议</th>
-                                    <th>端口</th>
-                                    <th>SSL</th>
-                                    <th>操作</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for acc in accounts %}
-                                <tr>
-                                    <td>
-                                        <input type="checkbox" name="selected_users" value="{{ acc.user }}">
-                                    </td>
-                                    <td>{{ acc.name or '-' }}</td>
-                                    <td>{{ acc.user }}</td>
-                                    <td>{{ acc.host }}</td>
-                                    <td>
-                                        <span class="badge bg-{{ 'primary' if acc.get('protocol', 'IMAP') == 'IMAP' else 'info' }}">
-                                            {{ acc.get('protocol', 'IMAP') }}
-                                        </span>
-                                    </td>
-                                    <td>{{ acc.get('port', '993' if acc.get('ssl', True) else '143') }}</td>
-                                    <td>
-                                        {% if acc.get('ssl', True) %}
-                                            <i class="bi bi-shield-check text-success" title="SSL启用"></i>
-                                        {% else %}
-                                            <i class="bi bi-shield-x text-warning" title="SSL未启用"></i>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <form method="post" action="/del_account" style="display:inline;">
-                                            <input type="hidden" name="user" value="{{ acc.user }}">
-                                            <input type="hidden" name="redirect_section" value="email-management">
-                                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('确认删除该账号？');">删除</button>
-                                        </form>
-                                        <button type="button" class="btn btn-outline-success btn-sm ms-1" onclick="testAccount('{{ acc.user }}', this)">测试连接</button>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                        </form>
-                        {% if accounts|length == 0 %}
-                        <div class="text-muted">暂无账号，请先添加。</div>
+                        <div class="table-responsive">
+                            <table class="table table-striped" id="email-table">
+                                <thead>
+                                    <tr>
+                                        <th><input type="checkbox" id="email-check-all"></th>
+                                        <th>备注</th>
+                                        <th>协议</th>
+                                        <th>服务器</th>
+                                        <th>邮箱地址</th>
+                                        <th>端口</th>
+                                        <th>SSL</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="email-tbody">
+                                    {% for account in accounts %}
+                                    <tr>
+                                        <td><input type="checkbox" value="{{ account.id }}"></td>
+                                        <td>{{ account.name or '' }}</td>
+                                        <td>{{ account.protocol }}</td>
+                                        <td>{{ account.host }}</td>
+                                        <td>{{ account.user }}</td>
+                                        <td>{{ account.port }}</td>
+                                        <td>{{ '✅' if account.ssl else '❌' }}</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" onclick="editEmail({{ account.id }})">编辑</button>
+                                            <button class="btn btn-sm btn-outline-success" onclick="testEmail('{{ account.user }}')">测试</button>
+                                            <button class="btn btn-sm btn-outline-danger" onclick="deleteEmail({{ account.id }})">删除</button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% if not accounts %}
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                            <p class="mt-2">暂无邮箱账号，请点击"添加邮箱"按钮开始添加。</p>
+                        </div>
                         {% endif %}
                     </div>
                 </div>
             </div>
 
-            <!-- Card Management Section -->
-            <div id="card-management" class="content-section {% if active_section == 'card-management' %}active{% endif %}">
-                <!-- 卡密操作按钮 -->
-                <div class="mb-3">
-                    <button type="button" class="btn btn-success me-2" onclick="showAddCardModal()">添加卡密</button>
-                    <button type="button" class="btn btn-info me-2" onclick="showImportCardModal()">批量导入</button>
-                    <button type="button" class="btn btn-warning me-2" onclick="exportCards()">导出卡密</button>
-                    <button type="button" class="btn btn-danger" onclick="deleteSelectedCards()">批量删除</button>
-                </div>
-
-                <!-- 卡密搜索过滤 -->
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-3">
-                                <input type="text" class="form-control" id="card-search" placeholder="搜索卡密编号或名称...">
-                            </div>
-                            <div class="col-md-2">
-                                <select class="form-select" id="card-status-filter">
-                                    <option value="">全部状态</option>
-                                    <option value="active">可用</option>
-                                    <option value="used_up">已用完</option>
-                                    <option value="expired">已过期</option>
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <button type="button" class="btn btn-primary" onclick="searchCards()">搜索</button>
-                            </div>
-                        </div>
+            <!-- Other sections will be loaded dynamically -->
+            <div id="card-management" class="content-section">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2>🎫 卡密管理</h2>
+                    <div>
+                        <button class="btn btn-success" onclick="showAddCardModal()">
+                            <i class="bi bi-plus"></i> 添加卡密
+                        </button>
+                        <button class="btn btn-primary" onclick="showGenerateCardsModal()">
+                            <i class="bi bi-magic"></i> 批量生成
+                        </button>
+                        <button class="btn btn-info" onclick="exportCards()">
+                            <i class="bi bi-download"></i> 导出
+                        </button>
+                        <button class="btn btn-danger" onclick="batchDeleteCards()">
+                            <i class="bi bi-trash"></i> 批量删除
+                        </button>
                     </div>
                 </div>
-
-                <!-- 卡密列表 -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <i class="bi bi-credit-card"></i> 卡密列表
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <input type="text" class="form-control" id="card-search" placeholder="搜索卡密编号或名称...">
                     </div>
+                    <div class="col-md-3">
+                        <select class="form-control" id="card-status-filter">
+                            <option value="">全部状态</option>
+                            <option value="active">可用</option>
+                            <option value="used_up">已用完</option>
+                            <option value="expired">已过期</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-primary" onclick="searchCards()">🔍 搜索</button>
+                    </div>
+                </div>
+                
+                <div id="card-alerts"></div>
+                
+                <div class="card">
                     <div class="card-body">
                         <div class="table-responsive">
-                            <table class="table table-striped align-middle" id="cards-table">
+                            <table class="table table-striped" id="card-table">
                                 <thead>
                                     <tr>
-                                        <th><input type="checkbox" id="check-all-cards" onclick="toggleSelectAllCards(this)"></th>
+                                        <th><input type="checkbox" id="card-check-all"></th>
                                         <th>卡密编号</th>
                                         <th>名称</th>
-                                        <th>可用次数</th>
-                                        <th>已用次数</th>
+                                        <th>使用次数</th>
                                         <th>状态</th>
                                         <th>过期时间</th>
                                         <th>专属链接</th>
                                         <th>操作</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    <!-- 卡密数据将通过JavaScript动态加载 -->
+                                <tbody id="card-tbody">
                                 </tbody>
                             </table>
                         </div>
@@ -527,1820 +452,367 @@
                 </div>
             </div>
 
-            <div id="proxy-pool" class="content-section {% if active_section == 'proxy-pool' %}active{% endif %}">
-                <!-- 代理操作按钮 -->
-                <div class="mb-3">
-                    <button type="button" class="btn btn-success me-2" onclick="showAddProxyModal()">添加代理</button>
-                    <button type="button" class="btn btn-danger" onclick="deleteSelectedProxies()">批量删除</button>
-                    <button type="button" class="btn btn-info ms-2" onclick="refreshProxyList()">刷新列表</button>
-                </div>
+            <!-- More sections would be added similarly -->
+            <div id="proxy-pool" class="content-section">
+                <h2>🌐 代理池</h2>
+                <p>代理池管理功能正在开发中...</p>
+            </div>
 
-                <!-- 代理列表 -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <i class="bi bi-globe"></i> 代理池管理
-                    </div>
-                    <div class="card-body">
-                        <table class="table table-striped align-middle" id="proxy-table">
-                            <thead>
-                                <tr>
-                                    <th><input type="checkbox" id="check-all-proxies" onclick="toggleSelectAllProxies(this)"></th>
-                                    <th>名称</th>
-                                    <th>类型</th>
-                                    <th>地址</th>
-                                    <th>端口</th>
-                                    <th>状态</th>
-                                    <th>操作</th>
-                                </tr>
-                            </thead>
-                            <tbody id="proxy-list">
-                                <tr>
-                                    <td colspan="7" class="text-center text-muted">加载中...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+            <div id="inbox-logs" class="content-section">
+                <h2>📥 收件日志</h2>
+                <p>收件日志功能正在开发中...</p>
+            </div>
 
-                <!-- 添加代理模态框 -->
-                <div class="modal fade" id="addProxyModal" tabindex="-1">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">添加代理</h5>
-                                <button type="button" class="btn-close" onclick="hideAddProxyModal()"></button>
-                            </div>
-                            <div class="modal-body">
-                                <form id="addProxyForm">
+            <div id="card-logs" class="content-section">
+                <h2>📋 卡密日志</h2>
+                <p>卡密日志功能正在开发中...</p>
+            </div>
+
+            <!-- System Settings Section -->
+            <div id="system-settings" class="content-section">
+                <h2>⚙️ 系统设置</h2>
+                
+                <div id="settings-alerts"></div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">🖼️ Logo设置</div>
+                            <div class="card-body">
+                                <form id="logo-form" enctype="multipart/form-data">
                                     <div class="mb-3">
-                                        <label for="proxy-name" class="form-label">代理名称</label>
-                                        <input type="text" class="form-control" id="proxy-name" name="name" placeholder="可选，默认自动生成">
+                                        <label class="form-label">当前Logo:</label>
+                                        <div>
+                                            <img src="/get_logo" id="current-logo" style="max-width: 100px; max-height: 100px;" 
+                                                 onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRkZGIiBzdHJva2U9IiNEREQiLz4KPHN2ZyB4PSIyNSIgeT0iMjUiIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCI+CjxyZWN0IHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCIgZmlsbD0iIzMzMzMzMyI+PC9yZWN0Pgo8L3N2Zz4K'">
+                                        </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label for="proxy-type" class="form-label">代理类型 *</label>
-                                        <select class="form-select" id="proxy-type" name="type" required>
-                                            <option value="">请选择代理类型</option>
-                                            <option value="HTTP">HTTP</option>
-                                            <option value="SOCKS5">SOCKS5</option>
-                                        </select>
+                                        <input type="file" class="form-control" name="logo" accept="image/*">
+                                        <div class="form-text">支持 PNG、JPG、JPEG、GIF、WEBP 格式</div>
                                     </div>
-                                    <div class="row">
-                                        <div class="col-md-8">
-                                            <label for="proxy-host" class="form-label">代理地址 *</label>
-                                            <input type="text" class="form-control" id="proxy-host" name="host" placeholder="127.0.0.1" required>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <label for="proxy-port" class="form-label">端口 *</label>
-                                            <input type="number" class="form-control" id="proxy-port" name="port" placeholder="1080" min="1" max="65535" required>
-                                        </div>
-                                    </div>
-                                    <div class="row mt-3">
-                                        <div class="col-md-6">
-                                            <label for="proxy-username" class="form-label">用户名</label>
-                                            <input type="text" class="form-control" id="proxy-username" name="username" placeholder="可选">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label for="proxy-password" class="form-label">密码</label>
-                                            <input type="password" class="form-control" id="proxy-password" name="password" placeholder="可选">
-                                        </div>
-                                    </div>
+                                    <button type="submit" class="btn btn-primary">上传Logo</button>
                                 </form>
                             </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" onclick="hideAddProxyModal()">取消</button>
-                                <button type="button" class="btn btn-primary" onclick="addProxy()">添加代理</button>
-                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
-
-            <!-- 编辑代理模态框 -->
-            <div class="modal fade" id="editProxyModal" tabindex="-1">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">编辑代理</h5>
-                            <button type="button" class="btn-close" onclick="hideEditProxyModal()"></button>
-                        </div>
-                        <div class="modal-body">
-                            <form id="editProxyForm">
-                                <input type="hidden" id="edit-proxy-id" name="proxy_id">
-                                <div class="mb-3">
-                                    <label for="edit-proxy-name" class="form-label">代理名称</label>
-                                    <input type="text" class="form-control" id="edit-proxy-name" name="name" placeholder="可选，默认自动生成">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="edit-proxy-type" class="form-label">代理类型 *</label>
-                                    <select class="form-select" id="edit-proxy-type" name="type" required>
-                                        <option value="">请选择代理类型</option>
-                                        <option value="HTTP">HTTP</option>
-                                        <option value="SOCKS5">SOCKS5</option>
-                                    </select>
-                                </div>
-                                <div class="row">
-                                    <div class="col-md-8">
-                                        <label for="edit-proxy-host" class="form-label">代理地址 *</label>
-                                        <input type="text" class="form-control" id="edit-proxy-host" name="host" placeholder="127.0.0.1" required>
+                    
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">🔐 密码修改</div>
+                            <div class="card-body">
+                                <form id="password-form">
+                                    <div class="mb-3">
+                                        <label class="form-label">当前密码:</label>
+                                        <input type="password" class="form-control" name="current_password" required>
                                     </div>
-                                    <div class="col-md-4">
-                                        <label for="edit-proxy-port" class="form-label">端口 *</label>
-                                        <input type="number" class="form-control" id="edit-proxy-port" name="port" placeholder="1080" min="1" max="65535" required>
+                                    <div class="mb-3">
+                                        <label class="form-label">新密码:</label>
+                                        <input type="password" class="form-control" name="new_password" required>
                                     </div>
-                                </div>
-                                <div class="row mt-3">
-                                    <div class="col-md-6">
-                                        <label for="edit-proxy-username" class="form-label">用户名</label>
-                                        <input type="text" class="form-control" id="edit-proxy-username" name="username" placeholder="可选">
+                                    <div class="mb-3">
+                                        <label class="form-label">确认新密码:</label>
+                                        <input type="password" class="form-control" name="confirm_password" required>
                                     </div>
-                                    <div class="col-md-6">
-                                        <label for="edit-proxy-password" class="form-label">密码</label>
-                                        <input type="password" class="form-control" id="edit-proxy-password" name="password" placeholder="可选">
-                                    </div>
-                                </div>
-                                <div class="mb-3 mt-3">
-                                    <label for="edit-proxy-status" class="form-label">状态</label>
-                                    <select class="form-select" id="edit-proxy-status" name="status">
-                                        <option value="active">活跃</option>
-                                        <option value="inactive">停用</option>
-                                    </select>
-                                </div>
-                            </form>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" onclick="hideEditProxyModal()">取消</button>
-                            <button type="button" class="btn btn-primary" onclick="updateProxy()">保存更改</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 添加卡密模态框 -->
-            <div class="modal fade" id="addCardModal" tabindex="-1">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">添加卡密</h5>
-                            <button type="button" class="btn-close" onclick="hideAddCardModal()"></button>
-                        </div>
-                        <div class="modal-body">
-                            <form id="add-card-form">
-                                <div class="mb-3">
-                                    <label for="card-code" class="form-label">卡密编号 *</label>
-                                    <input type="text" class="form-control" id="card-code" name="code" required
-                                           placeholder="输入卡密编号或点击生成">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="generateCardCode()">随机生成</button>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="card-name" class="form-label">卡密名称</label>
-                                    <input type="text" class="form-control" id="card-name" name="name" 
-                                           placeholder="可选的备注名称">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="card-usage-limit" class="form-label">可用次数 *</label>
-                                    <input type="number" class="form-control" id="card-usage-limit" name="usage_limit" 
-                                           value="1" min="1" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="card-expires-at" class="form-label">过期时间</label>
-                                    <input type="datetime-local" class="form-control" id="card-expires-at" name="expires_at">
-                                    <div class="form-text">留空表示永不过期</div>
-                                </div>
-                            </form>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" onclick="hideAddCardModal()">取消</button>
-                            <button type="button" class="btn btn-primary" onclick="addCard()">添加卡密</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 编辑卡密模态框 -->
-            <div class="modal fade" id="editCardModal" tabindex="-1">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">编辑卡密</h5>
-                            <button type="button" class="btn-close" onclick="hideEditCardModal()"></button>
-                        </div>
-                        <div class="modal-body">
-                            <form id="edit-card-form">
-                                <input type="hidden" id="edit-card-id" name="card_id">
-                                <div class="mb-3">
-                                    <label for="edit-card-code" class="form-label">卡密编号 *</label>
-                                    <input type="text" class="form-control" id="edit-card-code" name="code" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="edit-card-name" class="form-label">卡密名称</label>
-                                    <input type="text" class="form-control" id="edit-card-name" name="name">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="edit-card-usage-limit" class="form-label">可用次数 *</label>
-                                    <input type="number" class="form-control" id="edit-card-usage-limit" name="usage_limit" min="1" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="edit-card-expires-at" class="form-label">过期时间</label>
-                                    <input type="datetime-local" class="form-control" id="edit-card-expires-at" name="expires_at">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="edit-card-status" class="form-label">状态</label>
-                                    <select class="form-select" id="edit-card-status" name="status">
-                                        <option value="active">可用</option>
-                                        <option value="used_up">已用完</option>
-                                        <option value="expired">已过期</option>
-                                    </select>
-                                </div>
-                            </form>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" onclick="hideEditCardModal()">取消</button>
-                            <button type="button" class="btn btn-primary" onclick="updateCard()">保存更改</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 批量导入卡密模态框 -->
-            <div class="modal fade" id="importCardModal" tabindex="-1">
-                <div class="modal-dialog modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">批量导入卡密</h5>
-                            <button type="button" class="btn-close" onclick="hideImportCardModal()"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="mb-3">
-                                <label for="import-card-file" class="form-label">选择CSV文件</label>
-                                <input type="file" class="form-control" id="import-card-file" accept=".csv">
-                                <div class="form-text">CSV格式：编号,名称,可用次数,过期时间(可选)</div>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">或直接输入（每行一个卡密）</label>
-                                <textarea class="form-control" id="import-card-text" rows="10" 
-                                          placeholder="输入卡密编号，每行一个，格式：编号,名称,次数,过期时间"></textarea>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" onclick="hideImportCardModal()">取消</button>
-                            <button type="button" class="btn btn-primary" onclick="importCards()">导入卡密</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="inbox-logs" class="content-section {% if active_section == 'inbox-logs' %}active{% endif %}">
-                <!-- 日志搜索过滤 -->
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-3">
-                                <input type="text" class="form-control" id="email-log-search" placeholder="搜索邮箱账号...">
-                            </div>
-                            <div class="col-md-3">
-                                <input type="text" class="form-control" id="card-log-search" placeholder="搜索卡密编号...">
-                            </div>
-                            <div class="col-md-2">
-                                <input type="date" class="form-control" id="log-date-filter">
-                            </div>
-                            <div class="col-md-2">
-                                <select class="form-select" id="log-success-filter">
-                                    <option value="">全部</option>
-                                    <option value="true">成功</option>
-                                    <option value="false">失败</option>
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <button type="button" class="btn btn-primary" onclick="searchEmailLogs()">搜索</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 收件日志列表 -->
-                <div class="card">
-                    <div class="card-header">
-                        <i class="bi bi-list-ul"></i> 收件日志
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-striped align-middle" id="email-logs-table">
-                                <thead>
-                                    <tr>
-                                        <th>时间</th>
-                                        <th>邮箱账号</th>
-                                        <th>卡密</th>
-                                        <th>发件人</th>
-                                        <th>邮件主题</th>
-                                        <th>验证码</th>
-                                        <th>状态</th>
-                                        <th>IP地址</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <!-- 日志数据将通过JavaScript动态加载 -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="card-logs" class="content-section {% if active_section == 'card-logs' %}active{% endif %}">
-                <!-- 卡密日志搜索过滤 -->
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-3">
-                                <input type="text" class="form-control" id="card-usage-search" placeholder="搜索卡密编号...">
-                            </div>
-                            <div class="col-md-3">
-                                <input type="text" class="form-control" id="card-ip-search" placeholder="搜索IP地址...">
-                            </div>
-                            <div class="col-md-2">
-                                <input type="date" class="form-control" id="card-log-date-filter">
-                            </div>
-                            <div class="col-md-2">
-                                <select class="form-select" id="card-action-filter">
-                                    <option value="">全部操作</option>
-                                    <option value="access">访问</option>
-                                    <option value="use">使用</option>
-                                    <option value="verify">验证</option>
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <button type="button" class="btn btn-primary" onclick="searchCardLogs()">搜索</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 卡密日志列表 -->
-                <div class="card">
-                    <div class="card-header">
-                        <i class="bi bi-journal-text"></i> 卡密日志
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-striped align-middle" id="card-logs-table">
-                                <thead>
-                                    <tr>
-                                        <th>时间</th>
-                                        <th>卡密编号</th>
-                                        <th>操作类型</th>
-                                        <th>IP地址</th>
-                                        <th>用户代理</th>
-                                        <th>状态</th>
-                                        <th>错误信息</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <!-- 卡密日志数据将通过JavaScript动态加载 -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="system-settings" class="content-section {% if active_section == 'system-settings' %}active{% endif %}">
-                <div class="card">
-                    <div class="card-header">
-                        <i class="bi bi-gear"></i> 系统设置
-                    </div>
-                    <div class="card-body">
-                        <!-- Logo设置 -->
-                        <div class="mb-4">
-                            <h5><i class="bi bi-image"></i> Logo设置</h5>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="card">
-                                        <div class="card-body text-center">
-                                            <h6 class="card-title">当前Logo</h6>
-                                            <img id="current-logo" src="/get_logo" alt="当前Logo" class="img-fluid mb-3" 
-                                                 style="max-height: 150px; border: 1px solid #dee2e6; border-radius: 8px;">
-                                            <br>
-                                            <small class="text-muted">这个Logo将显示在登录页面</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="card">
-                                        <div class="card-body">
-                                            <h6 class="card-title">上传新Logo</h6>
-                                            <form id="logo-upload-form" enctype="multipart/form-data">
-                                                <div class="mb-3">
-                                                    <label for="logo-file" class="form-label">选择图片文件</label>
-                                                    <input type="file" class="form-control" id="logo-file" name="logo" 
-                                                           accept="image/*" required>
-                                                    <div class="form-text">支持PNG、JPG、JPEG、GIF、SVG格式，文件大小不超过16MB</div>
-                                                </div>
-                                                <button type="submit" class="btn btn-primary">
-                                                    <i class="bi bi-upload"></i> 上传Logo
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- 账号管理 -->
-                        <div class="mb-4">
-                            <h5><i class="bi bi-person-gear"></i> 管理员账号管理</h5>
-                            <div class="card">
-                                <div class="card-body">
-                                    <form id="admin-account-form">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="admin-username" class="form-label">管理员账号</label>
-                                                    <input type="text" class="form-control" id="admin-username" name="username" 
-                                                           value="{{ username }}" required>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="admin-password" class="form-label">新密码</label>
-                                                    <input type="password" class="form-control" id="admin-password" name="password" 
-                                                           placeholder="不修改请留空">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="admin-password-confirm" class="form-label">确认新密码</label>
-                                                    <input type="password" class="form-control" id="admin-password-confirm" name="password_confirm" 
-                                                           placeholder="不修改请留空">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6 d-flex align-items-end">
-                                                <button type="submit" class="btn btn-primary">
-                                                    <i class="bi bi-save"></i> 保存更改
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- 其他系统设置可以在这里添加 -->
-                        <div class="mb-4">
-                            <h5><i class="bi bi-info-circle"></i> 系统信息</h5>
-                            <div class="card">
-                                <div class="card-body">
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <p><strong>系统版本：</strong> 邮箱管理系统 v2.0</p>
-                                            <p><strong>当前用户：</strong> {{ username }}</p>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <p><strong>邮箱账号数：</strong> {{ accounts|length }}</p>
-                                            <p><strong>代理节点数：</strong> {{ proxies|length }}</p>
-                                        </div>
-                                    </div>
-                                </div>
+                                    <button type="submit" class="btn btn-primary">修改密码</button>
+                                </form>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <div id="test-result" style="display:none;" class="alert mt-2"></div>
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Navigation functionality
+        // Global variables
+        let currentSection = 'dashboard';
+        let darkMode = localStorage.getItem('darkMode') === 'true';
+
+        // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
-            // Navigation link functionality
-            const navLinks = document.querySelectorAll('.nav-link');
-            const contentSections = document.querySelectorAll('.content-section');
-
-            navLinks.forEach(link => {
-                link.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    
-                    // Remove active class from all links
-                    navLinks.forEach(l => l.classList.remove('active'));
-                    // Add active class to clicked link
-                    this.classList.add('active');
-                    
-                    // Hide all content sections
-                    contentSections.forEach(section => section.classList.remove('active'));
-                    // Show the target section
-                    const targetSection = document.getElementById(this.dataset.section);
-                    if (targetSection) {
-                        targetSection.classList.add('active');
-                    }
-                });
-            });
-        });
-
-        // Updated dark mode implementation for sidebar layout
-        function toggleDarkMode() {
-            const theme = document.getElementById('theme-style');
-            if (theme.getAttribute('data-dark') === '1') {
-                // Light mode
-                theme.innerHTML = `
-                    body {
-                        background: #f8f9fa;
-                        margin: 0;
-                        padding: 0;
-                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    }
-                    
-                    .sidebar {
-                        position: fixed;
-                        top: 0;
-                        left: 0;
-                        height: 100vh;
-                        width: 250px;
-                        background: #2c3e50;
-                        color: white;
-                        z-index: 1000;
-                        transition: all 0.3s ease;
-                    }
-                    
-                    .sidebar-header {
-                        padding: 1rem;
-                        border-bottom: 1px solid #34495e;
-                        display: flex;
-                        align-items: center;
-                    }
-                    
-                    .sidebar-header .logo {
-                        height: 32px;
-                        margin-right: 10px;
-                    }
-                    
-                    .sidebar-header h4 {
-                        margin: 0;
-                        font-size: 1.1rem;
-                        font-weight: 600;
-                    }
-                    
-                    .sidebar-menu {
-                        padding: 0;
-                        margin: 0;
-                        list-style: none;
-                    }
-                    
-                    .sidebar-menu li {
-                        border-bottom: 1px solid #34495e;
-                    }
-                    
-                    .sidebar-menu a {
-                        display: block;
-                        padding: 12px 20px;
-                        color: #bdc3c7;
-                        text-decoration: none;
-                        transition: all 0.3s ease;
-                    }
-                    
-                    .sidebar-menu a:hover, .sidebar-menu a.active {
-                        background: #34495e;
-                        color: #3498db;
-                        padding-left: 30px;
-                    }
-                    
-                    .sidebar-menu i {
-                        margin-right: 10px;
-                        width: 18px;
-                    }
-                    
-                    .main-content {
-                        margin-left: 250px;
-                        min-height: 100vh;
-                        transition: all 0.3s ease;
-                    }
-                    
-                    .content-header {
-                        background: white;
-                        padding: 1rem 2rem;
-                        border-bottom: 1px solid #dee2e6;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                    }
-                    
-                    .content-header .d-flex {
-                        align-items: center;
-                        justify-content: space-between;
-                    }
-                    
-                    .page-content {
-                        padding: 2rem;
-                    }
-                    
-                    .content-section {
-                        display: none;
-                    }
-                    
-                    .content-section.active {
-                        display: block;
-                    }
-                    
-                    .card { 
-                        border-radius: 10px; 
-                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                        border: none;
-                    }
-                    
-                    .card-header {
-                        background: #3498db;
-                        color: white;
-                        border-radius: 10px 10px 0 0 !important;
-                        padding: 1rem 1.5rem;
-                        font-weight: 600;
-                    }
-                    
-                    .table-striped>tbody>tr:hover { 
-                        background-color: #f8f9fa; 
-                        transition: background .2s; 
-                    }
-                    
-                    .welcome { 
-                        font-size: 1.2rem; 
-                        font-weight: bold; 
-                        color: #2c3e50; 
-                    }
-                    
-                    .btn-primary {
-                        background: #3498db;
-                        border-color: #3498db;
-                    }
-                    
-                    .btn-primary:hover {
-                        background: #2980b9;
-                        border-color: #2980b9;
-                    }
-                    
-                    .btn-darkmode { 
-                        margin-left: 10px; 
-                    }
-                    
-                    @media (max-width: 768px) {
-                        .sidebar {
-                            transform: translateX(-100%);
-                        }
-                        
-                        .sidebar.show {
-                            transform: translateX(0);
-                        }
-                        
-                        .main-content {
-                            margin-left: 0;
-                        }
-                    }
-                `;
-                theme.setAttribute('data-dark', '0');
-                localStorage.setItem('darkmode', '0');
-            } else {
-                // Dark mode
-                theme.innerHTML = `
-                    body {
-                        background: #1a1a1a;
-                        margin: 0;
-                        padding: 0;
-                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                        color: #eee;
-                    }
-                    
-                    .sidebar {
-                        position: fixed;
-                        top: 0;
-                        left: 0;
-                        height: 100vh;
-                        width: 250px;
-                        background: #1e2832;
-                        color: white;
-                        z-index: 1000;
-                        transition: all 0.3s ease;
-                    }
-                    
-                    .sidebar-header {
-                        padding: 1rem;
-                        border-bottom: 1px solid #2a3441;
-                        display: flex;
-                        align-items: center;
-                    }
-                    
-                    .sidebar-header .logo {
-                        height: 32px;
-                        margin-right: 10px;
-                    }
-                    
-                    .sidebar-header h4 {
-                        margin: 0;
-                        font-size: 1.1rem;
-                        font-weight: 600;
-                    }
-                    
-                    .sidebar-menu {
-                        padding: 0;
-                        margin: 0;
-                        list-style: none;
-                    }
-                    
-                    .sidebar-menu li {
-                        border-bottom: 1px solid #2a3441;
-                    }
-                    
-                    .sidebar-menu a {
-                        display: block;
-                        padding: 12px 20px;
-                        color: #bdc3c7;
-                        text-decoration: none;
-                        transition: all 0.3s ease;
-                    }
-                    
-                    .sidebar-menu a:hover, .sidebar-menu a.active {
-                        background: #2a3441;
-                        color: #ffc107;
-                        padding-left: 30px;
-                    }
-                    
-                    .sidebar-menu i {
-                        margin-right: 10px;
-                        width: 18px;
-                    }
-                    
-                    .main-content {
-                        margin-left: 250px;
-                        min-height: 100vh;
-                        transition: all 0.3s ease;
-                    }
-                    
-                    .content-header {
-                        background: #23272f;
-                        padding: 1rem 2rem;
-                        border-bottom: 1px solid #333;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                    }
-                    
-                    .content-header .d-flex {
-                        align-items: center;
-                        justify-content: space-between;
-                    }
-                    
-                    .page-content {
-                        padding: 2rem;
-                    }
-                    
-                    .content-section {
-                        display: none;
-                    }
-                    
-                    .content-section.active {
-                        display: block;
-                    }
-                    
-                    .card { 
-                        border-radius: 10px; 
-                        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-                        border: none;
-                        background: #23272f;
-                        color: #eee;
-                    }
-                    
-                    .card-header {
-                        background: #ffc107;
-                        color: #000;
-                        border-radius: 10px 10px 0 0 !important;
-                        padding: 1rem 1.5rem;
-                        font-weight: 600;
-                    }
-                    
-                    .table-striped>tbody>tr:hover { 
-                        background-color: #2e3542 !important; 
-                        transition: background .2s; 
-                    }
-                    
-                    .welcome { 
-                        font-size: 1.2rem; 
-                        font-weight: bold; 
-                        color: #ffc107; 
-                    }
-                    
-                    .btn-primary {
-                        background: #ffc107;
-                        border-color: #ffc107;
-                        color: #000;
-                    }
-                    
-                    .btn-primary:hover {
-                        background: #e0a800;
-                        border-color: #e0a800;
-                    }
-                    
-                    .btn, .form-control { 
-                        background: #292c35; 
-                        color: #eee; 
-                        border-color: #333; 
-                    }
-                    
-                    .btn-darkmode { 
-                        margin-left: 10px; 
-                    }
-                    
-                    @media (max-width: 768px) {
-                        .sidebar {
-                            transform: translateX(-100%);
-                        }
-                        
-                        .sidebar.show {
-                            transform: translateX(0);
-                        }
-                        
-                        .main-content {
-                            margin-left: 0;
-                        }
-                    }
-                `;
-                theme.setAttribute('data-dark', '1');
-                localStorage.setItem('darkmode', '1');
-            }
-        }
-
-        // Auto-load dark mode
-        window.onload = function() {
-            if (localStorage.getItem('darkmode') === '1') {
+            initializeApp();
+            if (darkMode) {
                 toggleDarkMode();
             }
-        }
-
-        // Export accounts
-        function exportAccounts() {
-            fetch("/export_accounts")
-            .then(r => r.json())
-            .then(data => {
-                const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type: "application/json"}));
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = "accounts.json";
-                a.click();
-                URL.revokeObjectURL(url);
-            });
-        }
-
-        // Import accounts
-        function importAccounts(input) {
-            if (input.files.length == 0) return;
-            const file = input.files[0];
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                fetch("/import_accounts", {
-                    method: "POST",
-                    headers: {"Content-Type": "application/json"},
-                    body: e.target.result
-                }).then(r => r.json())
-                .then(data => {
-                    if (data.success) location.reload();
-                    else alert("导入失败：" + data.error);
-                });
-            }
-            reader.readAsText(file);
-        }
-
-        // Batch delete
-        function deleteSelected() {
-            const checked = Array.from(document.querySelectorAll('input[name="selected_users"]:checked')).map(e => e.value);
-            if (checked.length == 0) { alert("请选择需要删除的账号"); return; }
-            if (!confirm("确认删除选中的账号？")) return;
-            fetch("/batch_delete", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({users: checked})
-            }).then(r => r.json())
-            .then(data => {
-                if (data.success) location.reload();
-                else alert("批量删除失败：" + data.error);
-            });
-        }
-
-        // Select all toggle
-        function toggleSelectAll(box) {
-            document.querySelectorAll('input[name="selected_users"]').forEach(e => {
-                e.checked = box.checked;
-            });
-        }
-
-        // Test account connection
-        function testAccount(user, btn) {
-            btn.disabled = true;
-            btn.textContent = "测试中...";
-            fetch("/test_account", {
-                method: "POST",
-                headers: {"Content-Type": "application/x-www-form-urlencoded"},
-                body: "user=" + encodeURIComponent(user)
-            })
-            .then(r => r.json())
-            .then(data => {
-                btn.disabled = false;
-                btn.textContent = "测试连接";
-                var resultDiv = document.getElementById("test-result");
-                resultDiv.style.display = "block";
-                if (data.result.indexOf("成功") !== -1) {
-                    resultDiv.className = "alert alert-success mt-2";
-                } else {
-                    resultDiv.className = "alert alert-danger mt-2";
-                }
-                resultDiv.textContent = user + "：" + data.result;
-                setTimeout(() => { resultDiv.style.display = "none"; }, 5000);
-            })
-            .catch(() => {
-                btn.disabled = false;
-                btn.textContent = "测试连接";
-                var resultDiv = document.getElementById("test-result");
-                resultDiv.className = "alert alert-danger mt-2";
-                resultDiv.textContent = "测试失败，请重试！";
-                resultDiv.style.display = "block";
-                setTimeout(() => { resultDiv.style.display = "none"; }, 5000);
-            });
-        }
-
-        // 端口建议功能
-        function updatePortSuggestion() {
-            const protocol = document.getElementById('protocol-select').value;
-            const ssl = document.getElementById('ssl-checkbox').checked;
-            const portInput = document.getElementById('port-input');
-            const suggestion = document.getElementById('port-suggestion');
-            
-            let recommendedPort;
-            if (protocol === 'IMAP') {
-                recommendedPort = ssl ? '993' : '143';
-            } else { // POP3
-                recommendedPort = ssl ? '995' : '110';
-            }
-            
-            suggestion.textContent = `推荐端口: ${recommendedPort}`;
-            
-            // 如果端口输入框为空，自动填入推荐端口
-            if (!portInput.value) {
-                portInput.placeholder = recommendedPort;
-            }
-        }
-
-        // 页面加载时初始化端口建议
-        document.addEventListener('DOMContentLoaded', function() {
-            updatePortSuggestion();
-            // 如果当前在代理池页面，加载代理列表
-            if (window.location.hash === '#proxy-pool' || document.querySelector('.nav-link[data-section="proxy-pool"]').classList.contains('active')) {
-                loadProxyList();
-            }
         });
 
-        // 代理池管理功能
-        function loadProxyList() {
-            fetch('/proxies')
-            .then(r => r.json())
-            .then(data => {
-                const tbody = document.getElementById('proxy-list');
-                if (data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">暂无代理，请先添加</td></tr>';
-                    return;
-                }
-                
-                tbody.innerHTML = data.map(proxy => `
-                    <tr>
-                        <td>
-                            <input type="checkbox" name="selected_proxies" value="${proxy.id}">
-                        </td>
-                        <td>${proxy.name}</td>
-                        <td>
-                            <span class="badge bg-${proxy.type === 'SOCKS5' ? 'primary' : proxy.type === 'HTTP' ? 'success' : 'info'}">
-                                ${proxy.type}
-                            </span>
-                        </td>
-                        <td>${proxy.host}</td>
-                        <td>${proxy.port}</td>
-                        <td>
-                            <span class="badge bg-${proxy.status === 'active' ? 'success' : 'secondary'}">
-                                ${proxy.status === 'active' ? '可用' : '禁用'}
-                            </span>
-                        </td>
-                        <td>
-                            <button type="button" class="btn btn-outline-success btn-sm" onclick="testProxy(${proxy.id}, this)">测试</button>
-                            <button type="button" class="btn btn-danger btn-sm ms-1" onclick="deleteProxy(${proxy.id})">删除</button>
-                        </td>
-                    </tr>
-                `).join('');
-            })
-            .catch(err => {
-                console.error('加载代理列表失败:', err);
-                document.getElementById('proxy-list').innerHTML = '<tr><td colspan="7" class="text-center text-danger">加载失败，请刷新重试</td></tr>';
-            });
-        }
-
-        function showAddProxyModal() {
-            // 简单显示模态框（不使用Bootstrap JS）
-            const modal = document.getElementById('addProxyModal');
-            modal.style.display = 'block';
-            modal.classList.add('show');
-            modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
-        }
-
-        function hideAddProxyModal() {
-            const modal = document.getElementById('addProxyModal');
-            modal.style.display = 'none';
-            modal.classList.remove('show');
-        }
-
-        function addProxy() {
-            const form = document.getElementById('addProxyForm');
-            const formData = new FormData(form);
-            const data = Object.fromEntries(formData.entries());
-            
-            fetch('/proxies', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    // 关闭模态框
-                    hideAddProxyModal();
-                    // 清空表单
-                    form.reset();
-                    // 刷新列表
-                    loadProxyList();
-                    // 显示成功消息
-                    showMessage('success', data.message || '代理添加成功');
-                } else {
-                    showMessage('danger', data.error || '添加失败');
-                }
-            })
-            .catch(err => {
-                console.error('添加代理失败:', err);
-                showMessage('danger', '网络错误，请重试');
-            });
-        }
-
-        function deleteProxy(proxyId) {
-            if (!confirm('确认删除该代理？')) return;
-            
-            fetch(`/proxies/${proxyId}`, {
-                method: 'DELETE'
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    loadProxyList();
-                    showMessage('success', data.message || '代理删除成功');
-                } else {
-                    showMessage('danger', data.error || '删除失败');
-                }
-            })
-            .catch(err => {
-                console.error('删除代理失败:', err);
-                showMessage('danger', '网络错误，请重试');
-            });
-        }
-
-        function testProxy(proxyId, btn) {
-            btn.disabled = true;
-            btn.textContent = '测试中...';
-            
-            fetch(`/proxies/${proxyId}/test`, {
-                method: 'POST'
-            })
-            .then(r => r.json())
-            .then(data => {
-                btn.disabled = false;
-                btn.textContent = '测试';
-                showMessage(data.success ? 'success' : 'danger', data.message || data.error);
-            })
-            .catch(err => {
-                btn.disabled = false;
-                btn.textContent = '测试';
-                console.error('测试代理失败:', err);
-                showMessage('danger', '测试失败，请重试');
-            });
-        }
-
-        function deleteSelectedProxies() {
-            const checked = Array.from(document.querySelectorAll('input[name="selected_proxies"]:checked')).map(e => parseInt(e.value));
-            if (checked.length === 0) { 
-                alert('请选择需要删除的代理'); 
-                return; 
-            }
-            if (!confirm('确认删除选中的代理？')) return;
-            
-            fetch('/proxies/batch_delete', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ids: checked})
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    loadProxyList();
-                    showMessage('success', data.message || '批量删除成功');
-                } else {
-                    showMessage('danger', data.error || '删除失败');
-                }
-            })
-            .catch(err => {
-                console.error('批量删除失败:', err);
-                showMessage('danger', '网络错误，请重试');
-            });
-        }
-
-        function toggleSelectAllProxies(box) {
-            document.querySelectorAll('input[name="selected_proxies"]').forEach(e => {
-                e.checked = box.checked;
-            });
-        }
-
-        function refreshProxyList() {
-            loadProxyList();
-            showMessage('info', '代理列表已刷新');
-        }
-        
-        function editProxy(proxyId) {
-            // Get proxy details and show edit modal
-            fetch('/proxies')
-                .then(response => response.json())
-                .then(proxies => {
-                    const proxy = proxies.find(p => p.id === proxyId);
-                    if (proxy) {
-                        document.getElementById('edit-proxy-id').value = proxy.id;
-                        document.getElementById('edit-proxy-name').value = proxy.name || '';
-                        document.getElementById('edit-proxy-type').value = proxy.type;
-                        document.getElementById('edit-proxy-host').value = proxy.host;
-                        document.getElementById('edit-proxy-port').value = proxy.port;
-                        document.getElementById('edit-proxy-username').value = proxy.username || '';
-                        document.getElementById('edit-proxy-password').value = proxy.password || '';
-                        document.getElementById('edit-proxy-status').value = proxy.status;
-                        showEditProxyModal();
-                    }
+        function initializeApp() {
+            // Set up navigation
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const section = this.dataset.section;
+                    showSection(section);
                 });
-        }
-        
-        function showEditProxyModal() {
-            const modal = document.getElementById('editProxyModal');
-            modal.style.display = 'block';
-            modal.classList.add('show');
-        }
-        
-        function hideEditProxyModal() {
-            const modal = document.getElementById('editProxyModal');
-            modal.style.display = 'none';
-            modal.classList.remove('show');
-            document.getElementById('editProxyForm').reset();
-        }
-        
-        function updateProxy() {
-            const formData = new FormData(document.getElementById('editProxyForm'));
-            
-            fetch('/proxies/update', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showAlert(data.message, 'success');
-                    hideEditProxyModal();
-                    refreshProxyList();
-                } else {
-                    showAlert(data.error, 'danger');
-                }
-            })
-            .catch(error => {
-                showAlert('更新失败：' + error.message, 'danger');
             });
-        }
-        
-        function deleteProxy(proxyId) {
-            if (!confirm('确认删除该代理？')) return;
-            
-            fetch(`/proxies/${proxyId}`, {
-                method: 'DELETE'
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showAlert(data.message, 'success');
-                    refreshProxyList();
-                } else {
-                    showAlert(data.error, 'danger');
-                }
-            })
-            .catch(error => {
-                showAlert('删除失败：' + error.message, 'danger');
-            });
-        }
-        
-        function testProxy(proxyId) {
-            fetch(`/proxies/${proxyId}/test`, {
-                method: 'POST'
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showAlert('代理连接测试成功', 'success');
-                } else {
-                    showAlert('代理连接测试失败：' + data.error, 'warning');
-                }
-            })
-            .catch(error => {
-                showAlert('测试失败：' + error.message, 'danger');
-            });
-        }
-        
-        function deleteSelectedProxies() {
-            const selected = Array.from(document.querySelectorAll('input[name="selected_proxies"]:checked'))
-                .map(cb => parseInt(cb.value));
-            
-            if (selected.length === 0) {
-                showAlert('请选择要删除的代理', 'warning');
-                return;
-            }
-            
-            if (!confirm(`确认删除 ${selected.length} 个代理？`)) return;
-            
-            fetch('/proxies/batch_delete', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ids: selected})
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showAlert(data.message, 'success');
-                    refreshProxyList();
-                } else {
-                    showAlert(data.error, 'danger');
-                }
-            });
-        }
-        
-        function toggleSelectAllProxies(checkbox) {
-            const checkboxes = document.querySelectorAll('input[name="selected_proxies"]');
-            checkboxes.forEach(cb => cb.checked = checkbox.checked);
+
+            // Set up form submissions
+            setupFormHandlers();
         }
 
-        function showMessage(type, message) {
-            // 创建或更新消息提示
-            let alertDiv = document.getElementById('proxy-alert');
-            if (!alertDiv) {
-                alertDiv = document.createElement('div');
-                alertDiv.id = 'proxy-alert';
-                alertDiv.className = 'alert alert-dismissible fade show';
-                alertDiv.style.position = 'fixed';
-                alertDiv.style.top = '20px';
-                alertDiv.style.right = '20px';
-                alertDiv.style.zIndex = '1060';
-                alertDiv.style.minWidth = '300px';
-                document.body.appendChild(alertDiv);
+        function showSection(section) {
+            // Hide all sections
+            document.querySelectorAll('.content-section').forEach(sec => {
+                sec.classList.remove('active');
+            });
+
+            // Show target section
+            document.getElementById(section).classList.add('active');
+
+            // Update navigation
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            document.querySelector(`[data-section="${section}"]`).classList.add('active');
+
+            currentSection = section;
+
+            // Load section data
+            loadSectionData(section);
+        }
+
+        function loadSectionData(section) {
+            switch(section) {
+                case 'card-management':
+                    loadCards();
+                    break;
+                // Add more cases as needed
             }
-            
+        }
+
+        function toggleDarkMode() {
+            darkMode = !darkMode;
+            document.body.classList.toggle('dark-mode', darkMode);
+            localStorage.setItem('darkMode', darkMode);
+        }
+
+        // Helper functions for API calls
+        async function apiCall(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                return await response.json();
+            } catch (error) {
+                console.error('API call failed:', error);
+                return { success: false, error: 'Network error' };
+            }
+        }
+
+        function showAlert(containerId, message, type = 'info') {
+            const container = document.getElementById(containerId);
+            const alertDiv = document.createElement('div');
             alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
             alertDiv.innerHTML = `
                 ${message}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             `;
-            
-            // 3秒后自动消失
-            setTimeout(() => {
-                if (alertDiv && alertDiv.parentNode) {
-                    alertDiv.remove();
-                }
-            }, 3000);
+            container.innerHTML = '';
+            container.appendChild(alertDiv);
+
+            // Auto-dismiss after 5 seconds for success messages
+            if (type === 'success') {
+                setTimeout(() => {
+                    if (alertDiv.parentNode) {
+                        alertDiv.remove();
+                    }
+                }, 5000);
+            }
         }
 
-        // 更新导航功能以支持代理列表加载
-        document.addEventListener('DOMContentLoaded', function() {
-            // 原有的导航功能
-            const navLinks = document.querySelectorAll('.nav-link');
-            const contentSections = document.querySelectorAll('.content-section');
-
-            navLinks.forEach(link => {
-                link.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    
-                    navLinks.forEach(l => l.classList.remove('active'));
-                    this.classList.add('active');
-                    
-                    contentSections.forEach(section => section.classList.remove('active'));
-                    const targetSection = document.getElementById(this.dataset.section);
-                    if (targetSection) {
-                        targetSection.classList.add('active');
-                        
-                        // 如果切换到代理池页面，加载代理列表
-                        if (this.dataset.section === 'proxy-pool') {
-                            loadProxyList();
-                        }
-                    }
-                });
-            });
-            
-            updatePortSuggestion();
-            
-            // Logo上传功能
-            const logoUploadForm = document.getElementById('logo-upload-form');
-            if (logoUploadForm) {
-                logoUploadForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    
-                    const formData = new FormData();
-                    const logoFile = document.getElementById('logo-file').files[0];
-                    
-                    if (!logoFile) {
-                        showAlert('请选择要上传的图片文件', 'danger');
-                        return;
-                    }
-                    
-                    formData.append('logo', logoFile);
-                    
-                    fetch('/upload_logo', {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            showAlert(data.message, 'success');
-                            // 更新当前Logo显示
-                            const currentLogo = document.getElementById('current-logo');
-                            const sidebarLogo = document.getElementById('sidebar-logo');
-                            const timestamp = new Date().getTime();
-                            currentLogo.src = '/get_logo?' + timestamp; // 添加时间戳避免缓存
-                            sidebarLogo.src = '/get_logo?' + timestamp; // 同时更新侧边栏logo
-                            // 清空文件选择
-                            document.getElementById('logo-file').value = '';
-                        } else {
-                            showAlert(data.error, 'danger');
-                        }
-                    })
-                    .catch(error => {
-                        showAlert('上传失败：' + error.message, 'danger');
-                    });
-                });
-            }
-            
-            // 管理员账号管理功能
-            const adminAccountForm = document.getElementById('admin-account-form');
-            if (adminAccountForm) {
-                adminAccountForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    
-                    const formData = new FormData(this);
-                    const password = formData.get('password');
-                    const passwordConfirm = formData.get('password_confirm');
-                    
-                    // 如果输入了新密码，验证密码一致性
-                    if (password && password !== passwordConfirm) {
-                        showAlert('两次输入的密码不一致', 'danger');
-                        return;
-                    }
-                    
-                    fetch('/update_admin_account', {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            showAlert(data.message, 'success');
-                            // 如果更改了密码，清空密码框
-                            if (password) {
-                                document.getElementById('admin-password').value = '';
-                                document.getElementById('admin-password-confirm').value = '';
-                            }
-                        } else {
-                            showAlert(data.error, 'danger');
-                        }
-                    })
-                    .catch(error => {
-                        showAlert('保存失败：' + error.message, 'danger');
-                    });
-                });
-            }
-        });
-        
         // Card management functions
-        function showAddCardModal() {
-            const modal = document.getElementById('addCardModal');
-            modal.style.display = 'block';
-            modal.classList.add('show');
-        }
-        
-        function hideAddCardModal() {
-            const modal = document.getElementById('addCardModal');
-            modal.style.display = 'none';
-            modal.classList.remove('show');
-            document.getElementById('add-card-form').reset();
-        }
-        
-        function showEditCardModal() {
-            const modal = document.getElementById('editCardModal');
-            modal.style.display = 'block';
-            modal.classList.add('show');
-        }
-        
-        function hideEditCardModal() {
-            const modal = document.getElementById('editCardModal');
-            modal.style.display = 'none';
-            modal.classList.remove('show');
-            document.getElementById('edit-card-form').reset();
-        }
-        
-        function showImportCardModal() {
-            const modal = document.getElementById('importCardModal');
-            modal.style.display = 'block';
-            modal.classList.add('show');
-        }
-        
-        function hideImportCardModal() {
-            const modal = document.getElementById('importCardModal');
-            modal.style.display = 'none';
-            modal.classList.remove('show');
-            document.getElementById('import-card-text').value = '';
-            document.getElementById('import-card-file').value = '';
-        }
-        
-        function generateCardCode() {
-            const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-            let result = '';
-            for (let i = 0; i < 12; i++) {
-                result += characters.charAt(Math.floor(Math.random() * characters.length));
-            }
-            document.getElementById('card-code').value = result;
-        }
-        
-        function loadCards() {
-            const search = document.getElementById('card-search').value;
-            const status = document.getElementById('card-status-filter').value;
+        async function loadCards() {
+            const search = document.getElementById('card-search')?.value || '';
+            const status = document.getElementById('card-status-filter')?.value || '';
             
-            fetch(`/cards?search=${encodeURIComponent(search)}&status=${encodeURIComponent(status)}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        updateCardsTable(data.cards);
-                    } else {
-                        showAlert(data.error, 'danger');
-                    }
-                })
-                .catch(error => {
-                    showAlert('加载卡密列表失败：' + error.message, 'danger');
-                });
+            const params = new URLSearchParams();
+            if (search) params.append('search', search);
+            if (status) params.append('status', status);
+            
+            const response = await apiCall(`/cards?${params}`);
+            if (response.success) {
+                renderCardTable(response.cards);
+            }
         }
-        
-        function updateCardsTable(cards) {
-            const tbody = document.querySelector('#cards-table tbody');
+
+        function renderCardTable(cards) {
+            const tbody = document.getElementById('card-tbody');
             tbody.innerHTML = '';
             
             cards.forEach(card => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><input type="checkbox" name="selected_cards" value="${card.id}"></td>
+                const row = document.createElement('tr');
+                const statusBadge = getStatusBadge(card.status);
+                const expiresAt = card.expires_at ? new Date(card.expires_at).toLocaleString() : '永不过期';
+                
+                row.innerHTML = `
+                    <td><input type="checkbox" value="${card.id}"></td>
                     <td>${card.code}</td>
-                    <td>${card.name || '-'}</td>
-                    <td>${card.usage_limit}</td>
-                    <td>${card.usage_count}</td>
-                    <td><span class="badge bg-${getStatusColor(card.status)}">${getStatusText(card.status)}</span></td>
-                    <td>${card.expires_at ? new Date(card.expires_at).toLocaleString() : '永不过期'}</td>
-                    <td><a href="${card.access_link}" target="_blank" class="btn btn-sm btn-outline-primary">访问链接</a></td>
+                    <td>${card.name || ''}</td>
+                    <td>${card.usage_count} / ${card.usage_limit}</td>
+                    <td>${statusBadge}</td>
+                    <td>${expiresAt}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-info" onclick="copyAccessLink('${card.access_link}')">复制链接</button>
+                    </td>
                     <td>
                         <button class="btn btn-sm btn-outline-primary" onclick="editCard(${card.id})">编辑</button>
-                        <button class="btn btn-sm btn-outline-danger ms-1" onclick="deleteCard(${card.id})">删除</button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteCard(${card.id})">删除</button>
                     </td>
                 `;
-                tbody.appendChild(tr);
+                tbody.appendChild(row);
             });
         }
-        
-        function getStatusColor(status) {
-            const colors = {
-                'active': 'success',
-                'used_up': 'warning',
-                'expired': 'danger'
+
+        function getStatusBadge(status) {
+            const badges = {
+                'active': '<span class="badge bg-success">可用</span>',
+                'used_up': '<span class="badge bg-warning">已用完</span>',
+                'expired': '<span class="badge bg-danger">已过期</span>'
             };
-            return colors[status] || 'secondary';
+            return badges[status] || '<span class="badge bg-secondary">未知</span>';
         }
-        
-        function getStatusText(status) {
-            const texts = {
-                'active': '可用',
-                'used_up': '已用完',
-                'expired': '已过期'
-            };
-            return texts[status] || status;
-        }
-        
+
         function searchCards() {
             loadCards();
         }
-        
-        function addCard() {
-            const formData = new FormData(document.getElementById('add-card-form'));
-            
-            fetch('/cards', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showAlert(data.message, 'success');
-                    hideAddCardModal();
-                    loadCards();
-                } else {
-                    showAlert(data.error, 'danger');
-                }
-            })
-            .catch(error => {
-                showAlert('添加失败：' + error.message, 'danger');
-            });
-        }
-        
-        function editCard(cardId) {
-            // First get card details
-            fetch(`/cards?search=&status=`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const card = data.cards.find(c => c.id === cardId);
-                        if (card) {
-                            document.getElementById('edit-card-id').value = card.id;
-                            document.getElementById('edit-card-code').value = card.code;
-                            document.getElementById('edit-card-name').value = card.name || '';
-                            document.getElementById('edit-card-usage-limit').value = card.usage_limit;
-                            document.getElementById('edit-card-status').value = card.status;
-                            document.getElementById('edit-card-expires-at').value = card.expires_at ? 
-                                new Date(card.expires_at).toISOString().slice(0, 16) : '';
-                            showEditCardModal();
-                        }
-                    }
-                });
-        }
-        
-        function updateCard() {
-            const formData = new FormData(document.getElementById('edit-card-form'));
-            
-            fetch('/cards/update', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showAlert(data.message, 'success');
-                    hideEditCardModal();
-                    loadCards();
-                } else {
-                    showAlert(data.error, 'danger');
-                }
-            })
-            .catch(error => {
-                showAlert('更新失败：' + error.message, 'danger');
-            });
-        }
-        
-        function deleteCard(cardId) {
-            if (!confirm('确认删除该卡密？')) return;
-            
-            fetch(`/cards/${cardId}`, {
-                method: 'DELETE'
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showAlert(data.message, 'success');
-                    loadCards();
-                } else {
-                    showAlert(data.error, 'danger');
-                }
-            })
-            .catch(error => {
-                showAlert('删除失败：' + error.message, 'danger');
-            });
-        }
-        
-        function deleteSelectedCards() {
-            const selected = Array.from(document.querySelectorAll('input[name="selected_cards"]:checked'))
-                .map(cb => parseInt(cb.value));
-            
-            if (selected.length === 0) {
-                showAlert('请选择要删除的卡密', 'warning');
-                return;
-            }
-            
-            if (!confirm(`确认删除 ${selected.length} 个卡密？`)) return;
-            
-            fetch('/cards/batch_delete', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ids: selected})
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showAlert(data.message, 'success');
-                    loadCards();
-                } else {
-                    showAlert(data.error, 'danger');
-                }
-            });
-        }
-        
-        function importCards() {
-            const cardsText = document.getElementById('import-card-text').value;
-            if (!cardsText.trim()) {
-                showAlert('请输入要导入的卡密数据', 'warning');
-                return;
-            }
-            
-            const formData = new FormData();
-            formData.append('cards_text', cardsText);
-            
-            fetch('/cards/import', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showAlert(data.message, 'success');
-                    hideImportCardModal();
-                    loadCards();
-                } else {
-                    showAlert(data.error, 'danger');
-                }
-            })
-            .catch(error => {
-                showAlert('导入失败：' + error.message, 'danger');
-            });
-        }
-        
-        function exportCards() {
-            fetch('/cards/export')
-                .then(response => response.json())
-                .then(data => {
-                    const csv = [
-                        ['编号', '名称', '可用次数', '已用次数', '状态', '过期时间', '访问链接', '创建时间'],
-                        ...data.map(card => [
-                            card.code,
-                            card.name,
-                            card.usage_limit,
-                            card.usage_count,
-                            card.status,
-                            card.expires_at,
-                            card.access_link,
-                            card.created_at
-                        ])
-                    ].map(row => row.join(',')).join('\n');
+
+        // Form handlers
+        function setupFormHandlers() {
+            // Logo upload form
+            const logoForm = document.getElementById('logo-form');
+            if (logoForm) {
+                logoForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const formData = new FormData(this);
                     
-                    const blob = new Blob([csv], { type: 'text/csv' });
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'cards_export.csv';
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                })
-                .catch(error => {
-                    showAlert('导出失败：' + error.message, 'danger');
-                });
-        }
-        
-        function toggleSelectAllCards(checkbox) {
-            const checkboxes = document.querySelectorAll('input[name="selected_cards"]');
-            checkboxes.forEach(cb => cb.checked = checkbox.checked);
-        }
-        
-        // Auto-load cards when card management section is shown
-        document.addEventListener('DOMContentLoaded', function() {
-            const cardManagementLink = document.querySelector('[data-section="card-management"]');
-            if (cardManagementLink) {
-                cardManagementLink.addEventListener('click', function() {
-                    setTimeout(loadCards, 100);
-                });
-            }
-            
-            // Auto-load logs when sections are shown
-            const inboxLogsLink = document.querySelector('[data-section="inbox-logs"]');
-            if (inboxLogsLink) {
-                inboxLogsLink.addEventListener('click', function() {
-                    setTimeout(loadEmailLogs, 100);
-                });
-            }
-            
-            const cardLogsLink = document.querySelector('[data-section="card-logs"]');
-            if (cardLogsLink) {
-                cardLogsLink.addEventListener('click', function() {
-                    setTimeout(loadCardLogs, 100);
-                });
-            }
-        });
-        
-        // Email logs functions
-        function loadEmailLogs() {
-            const emailSearch = document.getElementById('email-log-search').value;
-            const cardSearch = document.getElementById('card-log-search').value;
-            const dateFilter = document.getElementById('log-date-filter').value;
-            const successFilter = document.getElementById('log-success-filter').value;
-            
-            const params = new URLSearchParams({
-                email: emailSearch,
-                card: cardSearch,
-                date: dateFilter,
-                success: successFilter
-            });
-            
-            fetch(`/email_logs?${params}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        updateEmailLogsTable(data.logs);
-                    } else {
-                        showAlert(data.error, 'danger');
+                    try {
+                        const response = await fetch('/upload_logo', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            showAlert('settings-alerts', result.message, 'success');
+                            // Refresh logo images
+                            document.getElementById('current-logo').src = '/get_logo?' + new Date().getTime();
+                            document.getElementById('sidebar-logo').src = '/get_logo?' + new Date().getTime();
+                        } else {
+                            showAlert('settings-alerts', result.error, 'danger');
+                        }
+                    } catch (error) {
+                        showAlert('settings-alerts', '上传失败，请稍后重试', 'danger');
                     }
-                })
-                .catch(error => {
-                    showAlert('加载收件日志失败：' + error.message, 'danger');
                 });
-        }
-        
-        function updateEmailLogsTable(logs) {
-            const tbody = document.querySelector('#email-logs-table tbody');
-            tbody.innerHTML = '';
-            
-            logs.forEach(log => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${new Date(log.created_at).toLocaleString()}</td>
-                    <td>${log.email_account_user || '-'}</td>
-                    <td>${log.card_code || '-'}</td>
-                    <td>${log.sender || '-'}</td>
-                    <td>${log.subject || '-'}</td>
-                    <td>${log.verification_code || '-'}</td>
-                    <td><span class="badge bg-${log.success ? 'success' : 'danger'}">${log.success ? '成功' : '失败'}</span></td>
-                    <td>${log.ip_address || '-'}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-        
-        function searchEmailLogs() {
-            loadEmailLogs();
-        }
-        
-        // Card logs functions
-        function loadCardLogs() {
-            const cardSearch = document.getElementById('card-usage-search').value;
-            const ipSearch = document.getElementById('card-ip-search').value;
-            const dateFilter = document.getElementById('card-log-date-filter').value;
-            const actionFilter = document.getElementById('card-action-filter').value;
-            
-            const params = new URLSearchParams({
-                card: cardSearch,
-                ip: ipSearch,
-                date: dateFilter,
-                action: actionFilter
-            });
-            
-            fetch(`/card_logs?${params}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        updateCardLogsTable(data.logs);
-                    } else {
-                        showAlert(data.error, 'danger');
+            }
+
+            // Password change form
+            const passwordForm = document.getElementById('password-form');
+            if (passwordForm) {
+                passwordForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const formData = new FormData(this);
+                    
+                    try {
+                        const response = await fetch('/change_password', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            showAlert('settings-alerts', result.message, 'success');
+                            this.reset();
+                        } else {
+                            showAlert('settings-alerts', result.error, 'danger');
+                        }
+                    } catch (error) {
+                        showAlert('settings-alerts', '修改失败，请稍后重试', 'danger');
                     }
-                })
-                .catch(error => {
-                    showAlert('加载卡密日志失败：' + error.message, 'danger');
                 });
+            }
         }
-        
-        function updateCardLogsTable(logs) {
-            const tbody = document.querySelector('#card-logs-table tbody');
-            tbody.innerHTML = '';
+
+        // Email management functions
+        async function testEmail(user) {
+            try {
+                const response = await fetch('/test_account', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `user=${encodeURIComponent(user)}`
+                });
+                const result = await response.json();
+                
+                const alertType = result.result.includes('成功') ? 'success' : 'danger';
+                showAlert('email-alerts', `测试结果: ${result.result}`, alertType);
+            } catch (error) {
+                showAlert('email-alerts', '测试失败，请稍后重试', 'danger');
+            }
+        }
+
+        async function deleteEmail(id) {
+            if (!confirm('确认删除该邮箱账号？')) return;
             
-            logs.forEach(log => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${new Date(log.created_at).toLocaleString()}</td>
-                    <td>${log.card_code}</td>
-                    <td>${log.action}</td>
-                    <td>${log.ip_address}</td>
-                    <td>${log.user_agent || '-'}</td>
-                    <td><span class="badge bg-${log.success ? 'success' : 'danger'}">${log.success ? '成功' : '失败'}</span></td>
-                    <td>${log.error_message || '-'}</td>
-                `;
-                tbody.appendChild(tr);
-            });
+            try {
+                const formData = new FormData();
+                formData.append('user', id);
+                
+                const response = await fetch('/del_account', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.redirected) {
+                    location.reload();
+                } else {
+                    showAlert('email-alerts', '删除失败，请稍后重试', 'danger');
+                }
+            } catch (error) {
+                showAlert('email-alerts', '删除失败，请稍后重试', 'danger');
+            }
         }
-        
-        function searchCardLogs() {
-            loadCardLogs();
+
+        // Placeholder functions for other operations
+        function showAddEmailModal() { 
+            console.log('Show add email modal - to be implemented'); 
+        }
+        function showAddCardModal() { 
+            console.log('Show add card modal - to be implemented'); 
+        }
+        function showGenerateCardsModal() { 
+            console.log('Show generate cards modal - to be implemented'); 
+        }
+        function exportEmails() { 
+            console.log('Export emails - to be implemented'); 
+        }
+        function batchDeleteEmails() { 
+            console.log('Batch delete emails - to be implemented'); 
+        }
+        function editEmail(id) { 
+            console.log('Edit email - to be implemented', id); 
+        }
+        function exportCards() { 
+            console.log('Export cards - to be implemented'); 
+        }
+        function batchDeleteCards() { 
+            console.log('Batch delete cards - to be implemented'); 
+        }
+        function editCard(id) { 
+            console.log('Edit card - to be implemented', id); 
+        }
+        function deleteCard(id) { 
+            console.log('Delete card - to be implemented', id); 
+        }
+        function copyAccessLink(link) { 
+            navigator.clipboard.writeText(window.location.origin + link);
+            showAlert('card-alerts', '访问链接已复制到剪贴板', 'success');
         }
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

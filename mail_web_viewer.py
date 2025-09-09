@@ -1,13 +1,16 @@
 import json
 import re
 import os
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_from_directory
+from werkzeug.utils import secure_filename
 from models import db, AdminUser
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("ADMIN_SECRET_KEY", "a_very_secret_key")
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///admin.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['UPLOAD_FOLDER'] = 'static/uploads'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 db.init_app(app)
 
 def init_admin():
@@ -523,6 +526,47 @@ def batch_delete_proxies():
         return jsonify({"success": True, "message": "批量删除成功"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
+# 新增：系统设置相关路由
+@app.route("/upload_logo", methods=["POST"])
+def upload_logo():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    if 'logo' not in request.files:
+        return jsonify({"success": False, "error": "没有选择文件"})
+    
+    file = request.files['logo']
+    if file.filename == '':
+        return jsonify({"success": False, "error": "没有选择文件"})
+    
+    # 检查文件类型
+    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'svg'}
+    if not ('.' in file.filename and file.filename.rsplit('.', 1)[1].lower() in allowed_extensions):
+        return jsonify({"success": False, "error": "只支持PNG、JPG、JPEG、GIF、SVG格式的图片"})
+    
+    try:
+        # 保存文件为 logo.png (覆盖原有文件)
+        filename = "logo.png"
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
+        # 确保上传目录存在
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        
+        file.save(file_path)
+        return jsonify({"success": True, "message": "Logo上传成功"})
+    except Exception as e:
+        return jsonify({"success": False, "error": f"上传失败：{str(e)}"})
+
+@app.route("/get_logo")
+def get_logo():
+    """获取当前logo文件"""
+    logo_path = os.path.join(app.config['UPLOAD_FOLDER'], 'logo.png')
+    if os.path.exists(logo_path):
+        return send_from_directory(app.config['UPLOAD_FOLDER'], 'logo.png')
+    else:
+        # 如果没有上传的logo，返回默认的placeholder
+        return send_from_directory('static', 'logo.png')
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8001)

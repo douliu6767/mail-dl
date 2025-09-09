@@ -35,19 +35,22 @@
         <div class="alert alert-danger">{{ error }}</div>
         {% endif %}
 
-        <!-- 修改管理员密码 -->
+        <!-- 修改管理员账号、密码 -->
         <div class="card mb-4">
-            <div class="card-header bg-warning text-dark rounded-top">修改管理员密码</div>
+            <div class="card-header bg-warning text-dark rounded-top">修改管理员账号和密码</div>
             <div class="card-body">
-                <form method="post" action="/change_admin_pass" class="row g-3">
-                    <div class="col-md-5">
-                        <input type="password" name="new_password" class="form-control" placeholder="新密码" required>
+                <form method="post" action="/change_admin_info" class="row g-3">
+                    <div class="col-md-3">
+                        <input type="text" name="new_username" class="form-control" placeholder="新账号" value="{{ admin_user.username if admin_user else '' }}">
                     </div>
-                    <div class="col-md-5">
-                        <input type="password" name="confirm_password" class="form-control" placeholder="确认新密码" required>
+                    <div class="col-md-3">
+                        <input type="password" name="new_password" class="form-control" placeholder="新密码">
                     </div>
-                    <div class="col-md-2 d-grid">
-                        <button type="submit" class="btn btn-warning">修改密码</button>
+                    <div class="col-md-3">
+                        <input type="password" name="confirm_password" class="form-control" placeholder="确认新密码">
+                    </div>
+                    <div class="col-md-3 d-grid">
+                        <button type="submit" class="btn btn-warning">修改账号/密码</button>
                     </div>
                 </form>
                 {% with messages = get_flashed_messages(with_categories=true) %}
@@ -60,7 +63,7 @@
             </div>
         </div>
 
-        <!-- 导入导出操作（前端可用 json/txt/其它格式，后端目前为 json） -->
+        <!-- 导入导出操作 -->
         <div class="mb-3">
             <button type="button" class="btn btn-info me-2" onclick="exportAccounts()">导出账号</button>
             <label class="btn btn-success mb-0">
@@ -139,7 +142,6 @@
     </div>
 
     <script>
-        // 暗色模式实现
         function toggleDarkMode() {
             const theme = document.getElementById('theme-style');
             if (theme.getAttribute('data-dark') === '1') {
@@ -170,14 +172,11 @@
                 localStorage.setItem('darkmode', '1');
             }
         }
-        // 自动加载暗色模式
         window.onload = function() {
             if (localStorage.getItem('darkmode') === '1') {
                 toggleDarkMode();
             }
         }
-
-        // 导出账号
         function exportAccounts() {
             fetch("/export_accounts")
             .then(r => r.json())
@@ -190,7 +189,6 @@
                 URL.revokeObjectURL(url);
             });
         }
-        // 导入账号
         function importAccounts(input) {
             if (input.files.length == 0) return;
             const file = input.files[0];
@@ -208,7 +206,6 @@
             }
             reader.readAsText(file);
         }
-        // 批量删除
         function deleteSelected() {
             const checked = Array.from(document.querySelectorAll('input[name="selected_users"]:checked')).map(e => e.value);
             if (checked.length == 0) { alert("请选择需要删除的账号"); return; }
@@ -223,13 +220,11 @@
                 else alert("批量删除失败：" + data.error);
             });
         }
-        // 全选
         function toggleSelectAll(box) {
             document.querySelectorAll('input[name="selected_users"]').forEach(e => {
                 e.checked = box.checked;
             });
         }
-        // 测试连接
         function testAccount(user, btn) {
             btn.disabled = true;
             btn.textContent = "测试中...";

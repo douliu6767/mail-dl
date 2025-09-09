@@ -207,8 +207,144 @@ def create_proxy_connection(proxy_info, target_host, target_port, ssl=True):
 
 @app.route("/")
 def index():
-    accounts = EmailAccount.query.all()
-    return render_template("index.html", accounts=[a.user for a in accounts])
+    # No longer display account list - require card authentication
+    return render_template("index.html")
+
+@app.route("/getmail_with_card", methods=["POST"])
+def getmail_with_card():
+    """获取邮件功能，需要卡密验证"""
+    card_code = request.form.get("card_code", "").strip()
+    user = request.form.get("user", "").strip()
+    client_ip = request.remote_addr
+    user_agent = request.headers.get('User-Agent', '')
+    
+    # 验证卡密
+    if not card_code:
+        return jsonify({"error": "请输入卡密编号"})
+    
+    card = Card.query.filter_by(code=card_code).first()
+    if not card:
+        # 记录无效卡密访问
+        card_log = CardLog(
+            card_id=None,
+            card_code=card_code,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            action='verify',
+            success=False,
+            error_message='Invalid card code'
+        )
+        db.session.add(card_log)
+        db.session.commit()
+        return jsonify({"error": "无效的卡密编号"})
+    
+    # 检查卡密状态
+    if card.status != 'active':
+        card_log = CardLog(
+            card_id=card.id,
+            card_code=card_code,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            action='verify',
+            success=False,
+            error_message=f'Card status: {card.status}'
+        )
+        db.session.add(card_log)
+        db.session.commit()
+        
+        if card.status == 'used_up':
+            return jsonify({"error": "卡密已用完"})
+        elif card.status == 'expired':
+            return jsonify({"error": "卡密已过期"})
+        else:
+            return jsonify({"error": "卡密不可用"})
+    
+    # 检查是否过期
+    from datetime import datetime
+    if card.expires_at and datetime.utcnow() > card.expires_at:
+        card.status = 'expired'
+        db.session.commit()
+        return jsonify({"error": "卡密已过期"})
+    
+    # 检查使用次数
+    if card.usage_count >= card.usage_limit:
+        card.status = 'used_up'
+        db.session.commit()
+        return jsonify({"error": "卡密已用完"})
+    
+    # 验证邮箱账号
+    if not user:
+        return jsonify({"error": "请输入邮箱地址"})
+    
+    account = EmailAccount.query.filter_by(user=user).first()
+    if not account:
+        return jsonify({"error": "邮箱账号不存在，请联系管理员添加"})
+    
+    # 检查代理可用性
+    proxy_info = get_available_proxy()
+    if not proxy_info:
+        return jsonify({"error": "暂无可用代理，请稍后再试"})
+    
+    # 记录卡密使用
+    card_log = CardLog(
+        card_id=card.id,
+        card_code=card_code,
+        ip_address=client_ip,
+        user_agent=user_agent,
+        action='use',
+        success=False
+    )
+    
+    email_log = EmailLog(
+        email_account_id=account.id,
+        card_id=card.id,
+        ip_address=client_ip,
+        user_agent=user_agent,
+        success=False
+    )
+    
+    try:
+        # 获取邮件内容
+        result = get_email_content(account, proxy_info)
+        
+        if 'error' in result:
+            card_log.success = False
+            card_log.error_message = result['error']
+            email_log.success = False
+            email_log.error_message = result['error']
+            db.session.add_all([card_log, email_log])
+            db.session.commit()
+            return jsonify(result)
+        else:
+            # 成功 - 扣除使用次数
+            card.usage_count += 1
+            if card.usage_count >= card.usage_limit:
+                card.status = 'used_up'
+            
+            card_log.success = True
+            email_log.sender = result.get('sender', '')
+            email_log.subject = result.get('subject', '')
+            email_log.body_preview = result.get('body', '')[:500]
+            email_log.verification_code = result.get('code', '')
+            email_log.success = True
+            
+            db.session.add_all([card_log, email_log])
+            db.session.commit()
+            
+            return jsonify({
+                "subject": result['subject'],
+                "body": result['body'],
+                "code": result.get('code', '')
+            })
+    
+    except Exception as e:
+        card_log.success = False
+        card_log.error_message = str(e)
+        email_log.success = False
+        email_log.error_message = str(e)
+        db.session.add_all([card_log, email_log])
+        db.session.commit()
+        return jsonify({"error": f"获取邮件失败: {str(e)}"})
 
 @app.route("/getmail", methods=["POST"])
 def getmail():
@@ -1014,6 +1150,75 @@ def batch_delete_cards():
         db.session.rollback()
         return jsonify({"success": False, "error": str(e)})
 
+@app.route("/cards/generate", methods=["POST"])
+def generate_cards():
+    """批量生成卡密"""
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        count = int(request.form.get('count', 0))
+        name_prefix = request.form.get('name_prefix', '').strip()
+        usage_limit = int(request.form.get('usage_limit', 1))
+        expires_at = request.form.get('expires_at')
+        
+        if count <= 0 or count > 1000:
+            return jsonify({"success": False, "error": "生成数量必须在1-1000之间"})
+        
+        # Parse expiration date
+        expires_at_date = None
+        if expires_at:
+            try:
+                from datetime import datetime
+                expires_at_date = datetime.fromisoformat(expires_at)
+            except ValueError:
+                return jsonify({"success": False, "error": "过期时间格式错误"})
+        
+        generated_cards = []
+        
+        for i in range(count):
+            # 生成唯一的卡密码
+            import secrets
+            import string
+            card_code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(12))
+            
+            # 确保卡密不重复
+            while Card.query.filter_by(code=card_code).first():
+                card_code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(12))
+            
+            # 生成专属访问链接
+            import uuid
+            access_link = f"/card_access/{uuid.uuid4().hex}"
+            
+            # 创建卡密名称
+            card_name = f"{name_prefix}{i+1:03d}" if name_prefix else f"卡密{i+1:03d}"
+            
+            new_card = Card(
+                code=card_code,
+                name=card_name,
+                usage_limit=usage_limit,
+                expires_at=expires_at_date,
+                access_link=access_link
+            )
+            
+            db.session.add(new_card)
+            generated_cards.append({
+                'code': card_code,
+                'name': card_name,
+                'access_link': f"{request.host_url.rstrip('/')}{access_link}"
+            })
+        
+        db.session.commit()
+        
+        return jsonify({
+            "success": True, 
+            "message": f"成功生成 {count} 个卡密",
+            "cards": generated_cards
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": f"生成失败：{str(e)}"})
+
 @app.route("/cards/import", methods=["POST"])
 def import_cards():
     if not session.get('logged_in'):
@@ -1179,6 +1384,64 @@ def get_card_logs():
     
     logs = query.order_by(CardLog.created_at.desc()).limit(1000).all()
     return jsonify({"success": True, "logs": [log.to_dict() for log in logs]})
+
+@app.route("/card_logs/clear", methods=["POST"])
+def clear_card_logs():
+    """清空所有卡密日志"""
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        CardLog.query.delete()
+        db.session.commit()
+        return jsonify({"success": True, "message": "所有卡密日志已清空"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route("/card_logs/batch_delete", methods=["POST"])
+def batch_delete_card_logs():
+    """批量删除卡密日志"""
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        log_ids = request.json.get("ids", [])
+        CardLog.query.filter(CardLog.id.in_(log_ids)).delete(synchronize_session=False)
+        db.session.commit()
+        return jsonify({"success": True, "message": "批量删除成功"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route("/email_logs/clear", methods=["POST"])
+def clear_email_logs():
+    """清空所有邮件日志"""
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        EmailLog.query.delete()
+        db.session.commit()
+        return jsonify({"success": True, "message": "所有邮件日志已清空"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route("/email_logs/batch_delete", methods=["POST"])
+def batch_delete_email_logs():
+    """批量删除邮件日志"""
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        log_ids = request.json.get("ids", [])
+        EmailLog.query.filter(EmailLog.id.in_(log_ids)).delete(synchronize_session=False)
+        db.session.commit()
+        return jsonify({"success": True, "message": "批量删除成功"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)})
 
 # Card access routes for frontend users
 @app.route("/card_access/<access_token>", methods=["GET", "POST"])
@@ -1449,7 +1712,124 @@ def get_email_content(account, proxy_info):
         except:
             pass
 
-@app.route("/get_logo")
+@app.route("/upload_logo", methods=["POST"])
+def upload_logo():
+    """上传logo文件"""
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        if 'logo' not in request.files:
+            return jsonify({"success": False, "error": "没有选择文件"})
+        
+        file = request.files['logo']
+        if file.filename == '':
+            return jsonify({"success": False, "error": "没有选择文件"})
+        
+        # 检查文件类型
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+        if '.' not in file.filename or file.filename.rsplit('.', 1)[1].lower() not in allowed_extensions:
+            return jsonify({"success": False, "error": "只支持 PNG、JPG、JPEG、GIF、WEBP 格式的图片"})
+        
+        # 确保上传目录存在
+        upload_dir = app.config['UPLOAD_FOLDER']
+        if not os.path.exists(upload_dir):
+            os.makedirs(upload_dir)
+        
+        # 保存文件为 logo.png
+        filename = 'logo.png'
+        file_path = os.path.join(upload_dir, filename)
+        file.save(file_path)
+        
+        return jsonify({"success": True, "message": "Logo上传成功"})
+    except Exception as e:
+        return jsonify({"success": False, "error": f"上传失败：{str(e)}"})
+
+@app.route("/change_password", methods=["POST"])
+def change_password():
+    """修改管理员密码"""
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        current_password = request.form.get('current_password', '').strip()
+        new_password = request.form.get('new_password', '').strip()
+        confirm_password = request.form.get('confirm_password', '').strip()
+        
+        if not current_password or not new_password or not confirm_password:
+            return jsonify({"success": False, "error": "请填写所有密码字段"})
+        
+        if new_password != confirm_password:
+            return jsonify({"success": False, "error": "新密码与确认密码不一致"})
+        
+        if len(new_password) < 6:
+            return jsonify({"success": False, "error": "新密码长度不能少于6位"})
+        
+        # 验证当前密码
+        username = session.get('username')
+        user = AdminUser.query.filter_by(username=username).first()
+        if not user or not user.check_password(current_password):
+            return jsonify({"success": False, "error": "当前密码错误"})
+        
+        # 更新密码
+        user.set_password(new_password)
+        db.session.commit()
+        
+        return jsonify({"success": True, "message": "密码修改成功"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": f"修改失败：{str(e)}"})
+
+@app.route("/api/stats/emails", methods=["GET"])
+def get_email_stats():
+    """获取邮箱统计信息"""
+    if not session.get('logged_in'):
+        return jsonify({"count": 0})
+    
+    count = EmailAccount.query.count()
+    return jsonify({"count": count})
+
+@app.route("/api/stats/cards", methods=["GET"])
+def get_card_stats():
+    """获取卡密统计信息"""
+    if not session.get('logged_in'):
+        return jsonify({"count": 0})
+    
+    count = Card.query.count()
+    return jsonify({"count": count})
+
+@app.route("/api/stats/proxies", methods=["GET"])
+def get_proxy_stats():
+    """获取代理统计信息"""
+    if not session.get('logged_in'):
+        return jsonify({"count": 0})
+    
+    count = Proxy.query.filter_by(status='active').count()
+    return jsonify({"count": count})
+
+@app.route("/api/stats/logs", methods=["GET"])
+def get_log_stats():
+    """获取今日日志统计信息"""
+    if not session.get('logged_in'):
+        return jsonify({"count": 0})
+    
+    from datetime import datetime, date
+    today = date.today()
+    count = EmailLog.query.filter(db.func.date(EmailLog.created_at) == today).count()
+    return jsonify({"count": count})
+
+@app.route("/api/emails", methods=["GET"])
+def get_emails_api():
+    """获取邮箱列表 API"""
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    accounts = EmailAccount.query.all()
+    return jsonify({
+        "success": True,
+        "emails": [account.to_dict() for account in accounts]
+    })
+
 @app.route("/get_logo")
 def get_logo():
     """获取当前logo文件"""

@@ -35,6 +35,31 @@
         <div class="alert alert-danger">{{ error }}</div>
         {% endif %}
 
+        <!-- 修改管理员密码 -->
+        <div class="card mb-4">
+            <div class="card-header bg-warning text-dark rounded-top">修改管理员密码</div>
+            <div class="card-body">
+                <form method="post" action="/change_admin_pass" class="row g-3">
+                    <div class="col-md-5">
+                        <input type="password" name="new_password" class="form-control" placeholder="新密码" required>
+                    </div>
+                    <div class="col-md-5">
+                        <input type="password" name="confirm_password" class="form-control" placeholder="确认新密码" required>
+                    </div>
+                    <div class="col-md-2 d-grid">
+                        <button type="submit" class="btn btn-warning">修改密码</button>
+                    </div>
+                </form>
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, msg in messages %}
+                      <div class="alert alert-{{ category }} mt-2">{{ msg }}</div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+
         <!-- 导入导出操作 -->
         <div class="mb-3">
             <button type="button" class="btn btn-info me-2" onclick="exportAccounts()">导出账号</button>
@@ -217,24 +242,9 @@
             .then(data => {
                 btn.disabled = false;
                 btn.textContent = "测试连接";
-                var resultDiv = document.getElementById("test-result");
-                resultDiv.style.display = "block";
-                if (data.result.indexOf("成功") !== -1) {
-                    resultDiv.className = "alert alert-success mt-2";
-                } else {
-                    resultDiv.className = "alert alert-danger mt-2";
-                }
-                resultDiv.textContent = user + "：" + data.result;
-                setTimeout(() => { resultDiv.style.display = "none"; }, 5000);
-            })
-            .catch(() => {
-                btn.disabled = false;
-                btn.textContent = "测试连接";
-                var resultDiv = document.getElementById("test-result");
-                resultDiv.className = "alert alert-danger mt-2";
-                resultDiv.textContent = "测试失败，请重试！";
-                resultDiv.style.display = "block";
-                setTimeout(() => { resultDiv.style.display = "none"; }, 5000);
+                document.getElementById('test-result').style.display = "block";
+                document.getElementById('test-result').textContent = data.result;
+                setTimeout(() => { document.getElementById('test-result').style.display = "none"; }, 3000);
             });
         }
     </script>

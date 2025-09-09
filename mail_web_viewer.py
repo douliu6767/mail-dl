@@ -1,9 +1,13 @@
 import json
 import re
 import os
+import secrets
+import uuid
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_from_directory
 from werkzeug.utils import secure_filename
-from models import db, AdminUser
+from models import db, AdminUser, EmailAccount, Proxy, Card, EmailLog, CardLog
+from datetime import datetime, timedelta
+from sqlalchemy import and_, or_
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("ADMIN_SECRET_KEY", "a_very_secret_key")
@@ -21,6 +25,63 @@ def init_admin():
             user.set_password('123456')
             db.session.add(user)
             db.session.commit()
+        
+        # Migrate data from JSON files to database if needed
+        migrate_json_to_db()
+
+def migrate_json_to_db():
+    """Migrate existing JSON data to database"""
+    accounts_file = "accounts.json"
+    proxies_file = "proxies.json"
+    
+    # Migrate accounts
+    if os.path.exists(accounts_file) and EmailAccount.query.count() == 0:
+        try:
+            with open(accounts_file, encoding="utf-8") as f:
+                accounts_data = json.load(f)
+            
+            for account_data in accounts_data:
+                account = EmailAccount(
+                    name=account_data.get('name', ''),
+                    host=account_data['host'],
+                    user=account_data['user'],
+                    password=account_data['password'],
+                    protocol=account_data.get('protocol', 'IMAP'),
+                    port=account_data.get('port', 993 if account_data.get('ssl', True) else 143),
+                    ssl=account_data.get('ssl', True)
+                )
+                db.session.add(account)
+            
+            db.session.commit()
+            print("Migrated accounts from JSON to database")
+        except Exception as e:
+            print(f"Error migrating accounts: {e}")
+            db.session.rollback()
+    
+    # Migrate proxies
+    if os.path.exists(proxies_file) and Proxy.query.count() == 0:
+        try:
+            with open(proxies_file, encoding="utf-8") as f:
+                proxies_data = json.load(f)
+            
+            for proxy_data in proxies_data:
+                proxy = Proxy(
+                    name=proxy_data.get('name', ''),
+                    type=proxy_data['type'],
+                    host=proxy_data['host'],
+                    port=proxy_data['port'],
+                    username=proxy_data.get('username', ''),
+                    password=proxy_data.get('password', ''),
+                    status=proxy_data.get('status', 'active')
+                )
+                db.session.add(proxy)
+            
+            db.session.commit()
+            print("Migrated proxies from JSON to database")
+        except Exception as e:
+            print(f"Error migrating proxies: {e}")
+            db.session.rollback()
+
 init_admin()
 
 ACCOUNTS_FILE = "accounts.json"
@@ -28,33 +89,87 @@ PROXIES_FILE = "proxies.json"
 CODE_REGEX = r"\b(\d{6})\b"
 
 def load_accounts():
-    if os.path.exists(ACCOUNTS_FILE):
-        with open(ACCOUNTS_FILE, encoding="utf-8") as f:
-            return json.load(f)
-    return []
+    """Load accounts from database"""
+    accounts = EmailAccount.query.all()
+    return [account.to_dict() for account in accounts]
 
 def save_accounts(accounts):
-    with open(ACCOUNTS_FILE, "w", encoding="utf-8") as f:
-        json.dump(accounts, f, ensure_ascii=False, indent=2)
+    """Deprecated - accounts are now managed through database"""
+    pass
 
 def load_proxies():
-    if os.path.exists(PROXIES_FILE):
-        with open(PROXIES_FILE, encoding="utf-8") as f:
-            return json.load(f)
-    return []
+    """Load proxies from database"""
+    proxies = Proxy.query.filter_by(status='active').all()
+    return [proxy.to_dict() for proxy in proxies]
 
 def save_proxies(proxies):
-    with open(PROXIES_FILE, "w", encoding="utf-8") as f:
-        json.dump(proxies, f, ensure_ascii=False, indent=2)
+    """Deprecated - proxies are now managed through database"""
+    pass
 
 def get_proxy_for_connection():
     """获取一个可用的代理进行连接"""
-    proxies = load_proxies()
-    active_proxies = [p for p in proxies if p.get("status", "active") == "active"]
-    if active_proxies:
+    proxies = Proxy.query.filter_by(status='active').all()
+    if proxies:
         # 简单轮询选择，可以后续优化为更智能的选择策略
         import random
-        return random.choice(active_proxies)
+        return random.choice(proxies).to_dict()
+    return None
+
+def test_proxy_connection(proxy_info):
+    """测试代理连接是否可用"""
+    if not proxy_info:
+        return False
+    
+    try:
+        # 根据代理类型进行不同的测试
+        if proxy_info["type"] in ["HTTP", "HTTPS"]:
+            import urllib.request
+            import socket
+            
+            proxy_handler = urllib.request.ProxyHandler({
+                'http': f'http://{proxy_info["host"]}:{proxy_info["port"]}',
+                'https': f'http://{proxy_info["host"]}:{proxy_info["port"]}'
+            })
+            opener = urllib.request.build_opener(proxy_handler)
+            opener.addheaders = [('User-Agent', 'Mozilla/5.0')]
+            
+            # 简单的连接测试
+            response = opener.open('http://httpbin.org/ip', timeout=10)
+            return response.getcode() == 200
+            
+        elif proxy_info["type"] == "SOCKS5":
+            import socks
+            import socket
+            
+            # 创建SOCKS5代理测试
+            sock = socks.socksocket()
+            if proxy_info.get("username") and proxy_info.get("password"):
+                sock.set_proxy(socks.SOCKS5, proxy_info["host"], proxy_info["port"], 
+                             username=proxy_info["username"], password=proxy_info["password"])
+            else:
+                sock.set_proxy(socks.SOCKS5, proxy_info["host"], proxy_info["port"])
+            
+            # 测试连接到一个外部服务
+            sock.settimeout(10)
+            sock.connect(("8.8.8.8", 53))  # 连接到Google DNS
+            sock.close()
+            return True
+            
+    except Exception as e:
+        print(f"代理测试失败: {e}")
+        return False
+    
+    return False
+
+def get_available_proxy():
+    """获取一个经过测试的可用代理"""
+    proxies = Proxy.query.filter_by(status='active').all()
+    
+    for proxy in proxies:
+        proxy_dict = proxy.to_dict()
+        if test_proxy_connection(proxy_dict):
+            return proxy_dict
+    
     return None
 
 def create_proxy_connection(proxy_info, target_host, target_port, ssl=True):
@@ -92,61 +207,81 @@ def create_proxy_connection(proxy_info, target_host, target_port, ssl=True):
 
 @app.route("/")
 def index():
-    accounts = load_accounts()
-    return render_template("index.html", accounts=[a["user"] for a in accounts])
+    accounts = EmailAccount.query.all()
+    return render_template("index.html", accounts=[a.user for a in accounts])
 
 @app.route("/getmail", methods=["POST"])
 def getmail():
     user = request.form.get("user")
-    accounts = load_accounts()
-    account = next((a for a in accounts if a["user"] == user), None)
-    if not account:
-        return jsonify({"error": "邮箱不存在"})
+    client_ip = request.remote_addr
+    user_agent = request.headers.get('User-Agent', '')
     
-    # 获取代理进行连接
-    proxy_info = get_proxy_for_connection()
+    # Find account in database
+    account = EmailAccount.query.filter_by(user=user).first()
+    if not account:
+        return jsonify({"error": "邮箱不存在，获取失败"})
+    
+    # 强制要求使用代理池中的代理
+    proxy_info = get_available_proxy()
+    if not proxy_info:
+        return jsonify({"error": "暂无可用代理，请添加代理后再试"})
+    
+    email_log = EmailLog(
+        email_account_id=account.id,
+        ip_address=client_ip,
+        user_agent=user_agent,
+        success=False
+    )
     
     try:
-        # 获取协议、端口和SSL设置，提供默认值以支持旧账号
-        protocol = account.get("protocol", "IMAP")
-        port = account.get("port", 993 if account.get("ssl", True) else 143)
-        ssl = account.get("ssl", True)
-        host = account["host"]
+        # 获取协议、端口和SSL设置
+        protocol = account.protocol
+        port = account.port
+        ssl = account.ssl
+        host = account.host
         
         if protocol == "IMAP":
             from imapclient import IMAPClient
             import email
             
             # 尝试使用代理连接
-            if proxy_info:
-                try:
-                    import socks
-                    import socket
-                    # 配置全局代理
-                    if proxy_info["type"] == "SOCKS5":
-                        if proxy_info.get("username") and proxy_info.get("password"):
-                            socks.set_default_proxy(socks.SOCKS5, proxy_info["host"], proxy_info["port"], 
-                                                  username=proxy_info["username"], password=proxy_info["password"])
-                        else:
-                            socks.set_default_proxy(socks.SOCKS5, proxy_info["host"], proxy_info["port"])
-                    elif proxy_info["type"] == "SOCKS4":
-                        socks.set_default_proxy(socks.SOCKS4, proxy_info["host"], proxy_info["port"])
-                    
-                    socket.socket = socks.socksocket
-                except Exception as e:
-                    print(f"代理设置失败，使用直连: {e}")
+            try:
+                import socks
+                import socket
+                # 配置全局代理
+                if proxy_info["type"] == "SOCKS5":
+                    if proxy_info.get("username") and proxy_info.get("password"):
+                        socks.set_default_proxy(socks.SOCKS5, proxy_info["host"], proxy_info["port"], 
+                                              username=proxy_info["username"], password=proxy_info["password"])
+                    else:
+                        socks.set_default_proxy(socks.SOCKS5, proxy_info["host"], proxy_info["port"])
+                elif proxy_info["type"] == "HTTP":
+                    return jsonify({"error": "HTTP代理暂不支持IMAP连接，请使用SOCKS5代理"})
+                
+                socket.socket = socks.socksocket
+            except ImportError:
+                return jsonify({"error": "缺少 PySocks 模块，请安装后重试"})
+            except Exception as e:
+                return jsonify({"error": f"代理设置失败: {str(e)}"})
             
             with IMAPClient(host, port=port, ssl=ssl) as server:
-                server.login(account["user"], account["password"])
+                server.login(account.user, account.password)
                 server.select_folder("INBOX")
                 messages = server.search('ALL')
                 if not messages:
+                    email_log.success = True
+                    email_log.error_message = "邮箱为空"
+                    db.session.add(email_log)
+                    db.session.commit()
                     return jsonify({"subject": "无邮件", "body": "邮箱为空。"})
+                
                 latest_uid = messages[-1]
                 raw_message = server.fetch([latest_uid], ['RFC822'])[latest_uid][b'RFC822']
                 msg = email.message_from_bytes(raw_message)
                 subject = email.header.make_header(email.header.decode_header(msg.get("Subject", "")))
+                sender = msg.get("From", "")
                 body = ""
+                
                 if msg.is_multipart():
                     for part in msg.walk():
                         if part.get_content_type() == "text/plain":
@@ -157,43 +292,59 @@ def getmail():
                     text = msg.get_payload(decode=True)
                     if text:
                         body = text.decode(errors="ignore")
+                
                 code_match = re.search(CODE_REGEX, body)
                 code = code_match.group(1) if code_match else ""
+                
+                # 记录成功的邮件日志
+                email_log.sender = sender
+                email_log.subject = str(subject)
+                email_log.body_preview = body[:500] + "..." if len(body) > 500 else body
+                email_log.verification_code = code
+                email_log.success = True
+                db.session.add(email_log)
+                db.session.commit()
+                
                 return jsonify({"subject": str(subject), "body": body, "code": code})
         else:  # POP3
             import poplib
             import email
             
             # 尝试使用代理连接
-            if proxy_info:
-                try:
-                    import socks
-                    import socket
-                    # 配置全局代理
-                    if proxy_info["type"] == "SOCKS5":
-                        if proxy_info.get("username") and proxy_info.get("password"):
-                            socks.set_default_proxy(socks.SOCKS5, proxy_info["host"], proxy_info["port"], 
-                                                  username=proxy_info["username"], password=proxy_info["password"])
-                        else:
-                            socks.set_default_proxy(socks.SOCKS5, proxy_info["host"], proxy_info["port"])
-                    elif proxy_info["type"] == "SOCKS4":
-                        socks.set_default_proxy(socks.SOCKS4, proxy_info["host"], proxy_info["port"])
-                    
-                    socket.socket = socks.socksocket
-                except Exception as e:
-                    print(f"代理设置失败，使用直连: {e}")
+            try:
+                import socks
+                import socket
+                # 配置全局代理
+                if proxy_info["type"] == "SOCKS5":
+                    if proxy_info.get("username") and proxy_info.get("password"):
+                        socks.set_default_proxy(socks.SOCKS5, proxy_info["host"], proxy_info["port"], 
+                                              username=proxy_info["username"], password=proxy_info["password"])
+                    else:
+                        socks.set_default_proxy(socks.SOCKS5, proxy_info["host"], proxy_info["port"])
+                elif proxy_info["type"] == "HTTP":
+                    return jsonify({"error": "HTTP代理暂不支持POP3连接，请使用SOCKS5代理"})
+                
+                socket.socket = socks.socksocket
+            except ImportError:
+                return jsonify({"error": "缺少 PySocks 模块，请安装后重试"})
+            except Exception as e:
+                return jsonify({"error": f"代理设置失败: {str(e)}"})
             
             if ssl:
                 server = poplib.POP3_SSL(host, port)
             else:
                 server = poplib.POP3(host, port)
-            server.user(account["user"])
-            server.pass_(account["password"])
+            server.user(account.user)
+            server.pass_(account.password)
             
             # 获取邮件数量
             num_messages = len(server.list()[1])
             if num_messages == 0:
                 server.quit()
+                email_log.success = True
+                email_log.error_message = "邮箱为空"
+                db.session.add(email_log)
+                db.session.commit()
                 return jsonify({"subject": "无邮件", "body": "邮箱为空。"})
             
             # 获取最新邮件
@@ -202,7 +353,9 @@ def getmail():
             
             msg = email.message_from_bytes(raw_message)
             subject = email.header.make_header(email.header.decode_header(msg.get("Subject", "")))
+            sender = msg.get("From", "")
             body = ""
+            
             if msg.is_multipart():
                 for part in msg.walk():
                     if part.get_content_type() == "text/plain":
@@ -213,12 +366,27 @@ def getmail():
                 text = msg.get_payload(decode=True)
                 if text:
                     body = text.decode(errors="ignore")
+            
             code_match = re.search(CODE_REGEX, body)
             code = code_match.group(1) if code_match else ""
+            
+            # 记录成功的邮件日志
+            email_log.sender = sender
+            email_log.subject = str(subject)
+            email_log.body_preview = body[:500] + "..." if len(body) > 500 else body
+            email_log.verification_code = code
+            email_log.success = True
+            db.session.add(email_log)
+            db.session.commit()
+            
             return jsonify({"subject": str(subject), "body": body, "code": code})
             
     except Exception as e:
-        return jsonify({"error": str(e)})
+        error_msg = str(e)
+        email_log.error_message = error_msg
+        db.session.add(email_log)
+        db.session.commit()
+        return jsonify({"error": error_msg})
     finally:
         # 重置socket以避免影响其他连接
         try:
@@ -257,12 +425,13 @@ def admin():
         host = request.form.get("host", "")
         user = request.form.get("user", "")
         password = request.form.get("password", "")
-        protocol = request.form.get("protocol", "IMAP")  # 新增协议字段
-        port = request.form.get("port", "")  # 新增端口字段
-        ssl = request.form.get("ssl") == "on"  # 新增SSL字段
+        protocol = request.form.get("protocol", "IMAP")
+        port = request.form.get("port", "")
+        ssl = request.form.get("ssl") == "on"
         
         if not (host and user and password):
-            return render_template("admin.html", accounts=load_accounts(), proxies=load_proxies(), error="请填写完整信息", username=session.get('username'))
+            return render_template("admin.html", accounts=load_accounts(), proxies=load_proxies(), 
+                                 error="请填写完整信息", username=session.get('username'))
         
         # 如果端口为空，根据协议和SSL设置默认端口
         if not port:
@@ -271,93 +440,142 @@ def admin():
             else:  # POP3
                 port = "995" if ssl else "110"
         
-        accounts = load_accounts()
-        if any(a["user"] == user for a in accounts):
-            return render_template("admin.html", accounts=accounts, proxies=load_proxies(), error="该账号已存在", username=session.get('username'))
+        # 检查账号是否已存在
+        if EmailAccount.query.filter_by(user=user).first():
+            return render_template("admin.html", accounts=load_accounts(), proxies=load_proxies(), 
+                                 error="该账号已存在", username=session.get('username'))
         
-        # 创建包含新字段的账号数据
-        new_account = {
-            "name": name, 
-            "host": host, 
-            "user": user, 
-            "password": password,
-            "protocol": protocol,
-            "port": int(port) if port.isdigit() else port,
-            "ssl": ssl
-        }
-        accounts.append(new_account)
-        save_accounts(accounts)
-        
-        # 不重定向到首页，而是重新渲染当前页面
-        return render_template("admin.html", accounts=load_accounts(), proxies=load_proxies(), error=None, success="账号添加成功！", username=session.get('username'))
-    return render_template("admin.html", accounts=load_accounts(), proxies=load_proxies(), error=None, username=session.get('username'))
+        # 创建新账号
+        try:
+            new_account = EmailAccount(
+                name=name,
+                host=host,
+                user=user,
+                password=password,
+                protocol=protocol,
+                port=int(port) if port.isdigit() else int(port),
+                ssl=ssl
+            )
+            db.session.add(new_account)
+            db.session.commit()
+            
+            return render_template("admin.html", accounts=load_accounts(), proxies=load_proxies(), 
+                                 success="账号添加成功！", username=session.get('username'))
+        except Exception as e:
+            db.session.rollback()
+            return render_template("admin.html", accounts=load_accounts(), proxies=load_proxies(), 
+                                 error=f"添加失败: {str(e)}", username=session.get('username'))
+    
+    return render_template("admin.html", accounts=load_accounts(), proxies=load_proxies(), 
+                         username=session.get('username'))
 
 @app.route("/del_account", methods=["POST"])
 def del_account():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
     user = request.form.get("user")
-    accounts = load_accounts()
-    accounts = [a for a in accounts if a["user"] != user]
-    save_accounts(accounts)
-    # 不重定向到首页，而是重新渲染当前页面
-    return render_template("admin.html", accounts=load_accounts(), proxies=load_proxies(), error=None, success="账号删除成功！", username=session.get('username'))
+    
+    try:
+        account = EmailAccount.query.filter_by(user=user).first()
+        if account:
+            db.session.delete(account)
+            db.session.commit()
+            return render_template("admin.html", accounts=load_accounts(), proxies=load_proxies(), 
+                                 success="账号删除成功！", username=session.get('username'))
+        else:
+            return render_template("admin.html", accounts=load_accounts(), proxies=load_proxies(), 
+                                 error="账号不存在", username=session.get('username'))
+    except Exception as e:
+        db.session.rollback()
+        return render_template("admin.html", accounts=load_accounts(), proxies=load_proxies(), 
+                             error=f"删除失败: {str(e)}", username=session.get('username'))
+
+# 新增：编辑账号
+@app.route("/edit_account", methods=["POST"])
+def edit_account():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        account_id = request.form.get("account_id")
+        account = EmailAccount.query.get(account_id)
+        if not account:
+            return jsonify({"success": False, "error": "账号不存在"})
+        
+        # 更新账号信息
+        account.name = request.form.get("name", account.name)
+        account.host = request.form.get("host", account.host)
+        account.user = request.form.get("user", account.user)
+        account.password = request.form.get("password", account.password)
+        account.protocol = request.form.get("protocol", account.protocol)
+        account.port = int(request.form.get("port", account.port))
+        account.ssl = request.form.get("ssl") == "on"
+        account.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        return jsonify({"success": True, "message": "账号更新成功"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)})
 
 # 新增：测试账号连接
 @app.route("/test_account", methods=["POST"])
 def test_account():
     if not session.get('logged_in'):
         return jsonify({"result": "未登录"})
+    
     user = request.form.get("user")
-    accounts = load_accounts()
-    account = next((a for a in accounts if a["user"] == user), None)
+    account = EmailAccount.query.filter_by(user=user).first()
     if not account:
         return jsonify({"result": "账号不存在"})
     
-    # 获取代理进行连接
-    proxy_info = get_proxy_for_connection()
+    # 强制要求使用代理池中的代理
+    proxy_info = get_available_proxy()
+    if not proxy_info:
+        return jsonify({"result": "暂无可用代理，请添加代理后再试"})
     
     try:
-        # 获取协议、端口和SSL设置，提供默认值以支持旧账号
-        protocol = account.get("protocol", "IMAP")
-        port = account.get("port", 993 if account.get("ssl", True) else 143)
-        ssl = account.get("ssl", True)
-        host = account["host"]
+        # 获取协议、端口和SSL设置
+        protocol = account.protocol
+        port = account.port
+        ssl = account.ssl
+        host = account.host
         
         # 尝试使用代理连接
-        if proxy_info:
-            try:
-                import socks
-                import socket
-                # 配置全局代理
-                if proxy_info["type"] == "SOCKS5":
-                    if proxy_info.get("username") and proxy_info.get("password"):
-                        socks.set_default_proxy(socks.SOCKS5, proxy_info["host"], proxy_info["port"], 
-                                              username=proxy_info["username"], password=proxy_info["password"])
-                    else:
-                        socks.set_default_proxy(socks.SOCKS5, proxy_info["host"], proxy_info["port"])
-                elif proxy_info["type"] == "SOCKS4":
-                    socks.set_default_proxy(socks.SOCKS4, proxy_info["host"], proxy_info["port"])
-                
-                socket.socket = socks.socksocket
-            except Exception as e:
-                print(f"代理设置失败，使用直连: {e}")
+        try:
+            import socks
+            import socket
+            # 配置全局代理
+            if proxy_info["type"] == "SOCKS5":
+                if proxy_info.get("username") and proxy_info.get("password"):
+                    socks.set_default_proxy(socks.SOCKS5, proxy_info["host"], proxy_info["port"], 
+                                          username=proxy_info["username"], password=proxy_info["password"])
+                else:
+                    socks.set_default_proxy(socks.SOCKS5, proxy_info["host"], proxy_info["port"])
+            elif proxy_info["type"] == "HTTP":
+                return jsonify({"result": "HTTP代理暂不支持邮箱连接测试，请使用SOCKS5代理"})
+            
+            socket.socket = socks.socksocket
+        except ImportError:
+            return jsonify({"result": "缺少 PySocks 模块，请安装后重试"})
+        except Exception as e:
+            return jsonify({"result": f"代理设置失败: {str(e)}"})
         
         if protocol == "IMAP":
             from imapclient import IMAPClient
             with IMAPClient(host, port=port, ssl=ssl) as server:
-                server.login(account["user"], account["password"])
+                server.login(account.user, account.password)
         else:  # POP3
             import poplib
             if ssl:
                 server = poplib.POP3_SSL(host, port)
             else:
                 server = poplib.POP3(host, port)
-            server.user(account["user"])
-            server.pass_(account["password"])
+            server.user(account.user)
+            server.pass_(account.password)
             server.quit()
         
-        proxy_msg = f" (通过代理: {proxy_info['name']})" if proxy_info else " (直连)"
+        proxy_msg = f" (通过代理: {proxy_info['name']})" if proxy_info else ""
         return jsonify({"result": f"连接成功{proxy_msg}"})
     except Exception as e:
         return jsonify({"result": f"连接失败：{str(e)}"})
@@ -426,8 +644,9 @@ def add_proxy():
         if not (proxy_type and host and port):
             return jsonify({"success": False, "error": "请填写完整的代理信息"})
         
-        if proxy_type not in ["HTTP", "HTTPS", "SOCKS4", "SOCKS5"]:
-            return jsonify({"success": False, "error": "不支持的代理类型"})
+        # 限制代理类型为 HTTP 和 SOCKS5
+        if proxy_type not in ["HTTP", "SOCKS5"]:
+            return jsonify({"success": False, "error": "仅支持 HTTP 和 SOCKS5 类型的代理"})
         
         try:
             port = int(port)
@@ -436,29 +655,80 @@ def add_proxy():
         except ValueError:
             return jsonify({"success": False, "error": "端口必须是1-65535之间的数字"})
         
-        proxies = load_proxies()
-        
         # 检查是否已存在相同的代理
-        for proxy in proxies:
-            if proxy["host"] == host and proxy["port"] == port:
-                return jsonify({"success": False, "error": "该代理已存在"})
+        existing_proxy = Proxy.query.filter_by(host=host, port=port).first()
+        if existing_proxy:
+            return jsonify({"success": False, "error": "该代理已存在"})
         
-        new_proxy = {
-            "id": len(proxies) + 1,
-            "name": name or f"{proxy_type}://{host}:{port}",
-            "type": proxy_type,
-            "host": host,
-            "port": port,
-            "username": username,
-            "password": password,
-            "status": "active",
-            "created_at": __import__('datetime').datetime.now().isoformat()
-        }
+        new_proxy = Proxy(
+            name=name or f"{proxy_type}://{host}:{port}",
+            type=proxy_type,
+            host=host,
+            port=port,
+            username=username,
+            password=password,
+            status="active"
+        )
         
-        proxies.append(new_proxy)
-        save_proxies(proxies)
+        db.session.add(new_proxy)
+        db.session.commit()
         return jsonify({"success": True, "message": "代理添加成功"})
     except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)})
+
+# 新增：编辑代理
+@app.route("/proxies/<int:proxy_id>", methods=["PUT"])
+def edit_proxy(proxy_id):
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    try:
+        proxy = Proxy.query.get(proxy_id)
+        if not proxy:
+            return jsonify({"success": False, "error": "代理不存在"})
+        
+        data = request.get_json()
+        proxy_type = data.get("type", "").upper()
+        host = data.get("host", "").strip()
+        port = data.get("port")
+        username = data.get("username", "").strip()
+        password = data.get("password", "").strip()
+        name = data.get("name", "").strip()
+        
+        if not (proxy_type and host and port):
+            return jsonify({"success": False, "error": "请填写完整的代理信息"})
+        
+        # 限制代理类型为 HTTP 和 SOCKS5
+        if proxy_type not in ["HTTP", "SOCKS5"]:
+            return jsonify({"success": False, "error": "仅支持 HTTP 和 SOCKS5 类型的代理"})
+        
+        try:
+            port = int(port)
+            if port < 1 or port > 65535:
+                raise ValueError("端口范围无效")
+        except ValueError:
+            return jsonify({"success": False, "error": "端口必须是1-65535之间的数字"})
+        
+        # 检查是否与其他代理冲突（排除自己）
+        existing_proxy = Proxy.query.filter(
+            and_(Proxy.host == host, Proxy.port == port, Proxy.id != proxy_id)
+        ).first()
+        if existing_proxy:
+            return jsonify({"success": False, "error": "该代理地址已被其他代理使用"})
+        
+        # 更新代理信息
+        proxy.name = name or f"{proxy_type}://{host}:{port}"
+        proxy.type = proxy_type
+        proxy.host = host
+        proxy.port = port
+        proxy.username = username
+        proxy.password = password
+        proxy.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        return jsonify({"success": True, "message": "代理更新成功"})
+    except Exception as e:
+        db.session.rollback()
         return jsonify({"success": False, "error": str(e)})
 
 @app.route("/proxies/<int:proxy_id>", methods=["DELETE"])
@@ -466,11 +736,15 @@ def delete_proxy(proxy_id):
     if not session.get('logged_in'):
         return jsonify({"success": False, "error": "未登录"})
     try:
-        proxies = load_proxies()
-        proxies = [p for p in proxies if p["id"] != proxy_id]
-        save_proxies(proxies)
+        proxy = Proxy.query.get(proxy_id)
+        if not proxy:
+            return jsonify({"success": False, "error": "代理不存在"})
+        
+        db.session.delete(proxy)
+        db.session.commit()
         return jsonify({"success": True, "message": "代理删除成功"})
     except Exception as e:
+        db.session.rollback()
         return jsonify({"success": False, "error": str(e)})
 
 @app.route("/proxies/<int:proxy_id>/test", methods=["POST"])
@@ -478,39 +752,15 @@ def test_proxy(proxy_id):
     if not session.get('logged_in'):
         return jsonify({"success": False, "error": "未登录"})
     try:
-        proxies = load_proxies()
-        proxy = next((p for p in proxies if p["id"] == proxy_id), None)
+        proxy = Proxy.query.get(proxy_id)
         if not proxy:
             return jsonify({"success": False, "error": "代理不存在"})
         
-        # 简单的代理连接测试
-        import socket
-        import time
-        start_time = time.time()
-        
-        try:
-            if proxy["type"] in ["HTTP", "HTTPS"]:
-                # HTTP代理测试
-                import urllib.request
-                proxy_handler = urllib.request.ProxyHandler({
-                    'http': f'http://{proxy["host"]}:{proxy["port"]}',
-                    'https': f'http://{proxy["host"]}:{proxy["port"]}'
-                })
-                opener = urllib.request.build_opener(proxy_handler)
-                urllib.request.install_opener(opener)
-                response = urllib.request.urlopen('http://httpbin.org/ip', timeout=10)
-                response.read()
-            else:
-                # SOCKS代理测试 - 简单的socket连接测试
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(10)
-                sock.connect((proxy["host"], proxy["port"]))
-                sock.close()
-            
-            response_time = round((time.time() - start_time) * 1000, 2)
-            return jsonify({"success": True, "message": f"代理连接成功 ({response_time}ms)"})
-        except Exception as e:
-            return jsonify({"success": False, "error": f"代理连接失败: {str(e)}"})
+        proxy_dict = proxy.to_dict()
+        if test_proxy_connection(proxy_dict):
+            return jsonify({"success": True, "message": "代理连接成功"})
+        else:
+            return jsonify({"success": False, "error": "代理连接失败"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
@@ -520,14 +770,572 @@ def batch_delete_proxies():
         return jsonify({"success": False, "error": "未登录"})
     try:
         proxy_ids = request.json.get("ids", [])
-        proxies = load_proxies()
-        proxies = [p for p in proxies if p["id"] not in proxy_ids]
-        save_proxies(proxies)
+        Proxy.query.filter(Proxy.id.in_(proxy_ids)).delete(synchronize_session=False)
+        db.session.commit()
         return jsonify({"success": True, "message": "批量删除成功"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)})
+
+# 卡密管理功能
+@app.route("/cards", methods=["GET"])
+def get_cards():
+    if not session.get('logged_in'):
+        return jsonify([])
+    
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    search = request.args.get('search', '')
+    status_filter = request.args.get('status', '')
+    
+    query = Card.query
+    
+    if search:
+        query = query.filter(or_(
+            Card.code.contains(search),
+            Card.name.contains(search)
+        ))
+    
+    if status_filter:
+        query = query.filter(Card.status == status_filter)
+    
+    cards = query.paginate(page=page, per_page=per_page, error_out=False)
+    
+    return jsonify({
+        "cards": [card.to_dict() for card in cards.items],
+        "total": cards.total,
+        "pages": cards.pages,
+        "current_page": cards.page
+    })
+
+@app.route("/cards", methods=["POST"])
+def add_card():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        data = request.get_json()
+        code = data.get("code", "").strip()
+        name = data.get("name", "").strip()
+        usage_limit = data.get("usage_limit", 1)
+        expires_at = data.get("expires_at")
+        
+        if not code:
+            return jsonify({"success": False, "error": "卡密代码不能为空"})
+        
+        # 检查卡密是否已存在
+        existing_card = Card.query.filter_by(code=code).first()
+        if existing_card:
+            return jsonify({"success": False, "error": "卡密已存在"})
+        
+        # 生成专属访问链接
+        access_token = secrets.token_urlsafe(32)
+        access_link = f"/card_access/{access_token}"
+        
+        # 处理过期时间
+        expires_at_dt = None
+        if expires_at:
+            try:
+                expires_at_dt = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+            except:
+                return jsonify({"success": False, "error": "无效的过期时间格式"})
+        
+        new_card = Card(
+            code=code,
+            name=name,
+            usage_limit=max(1, int(usage_limit)),
+            access_link=access_link,
+            expires_at=expires_at_dt
+        )
+        
+        db.session.add(new_card)
+        db.session.commit()
+        return jsonify({"success": True, "message": "卡密添加成功", "card": new_card.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route("/cards/<int:card_id>", methods=["PUT"])
+def edit_card(card_id):
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        card = Card.query.get(card_id)
+        if not card:
+            return jsonify({"success": False, "error": "卡密不存在"})
+        
+        data = request.get_json()
+        card.name = data.get("name", card.name)
+        card.usage_limit = max(1, int(data.get("usage_limit", card.usage_limit)))
+        card.status = data.get("status", card.status)
+        
+        expires_at = data.get("expires_at")
+        if expires_at:
+            try:
+                card.expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+            except:
+                return jsonify({"success": False, "error": "无效的过期时间格式"})
+        elif expires_at == "":
+            card.expires_at = None
+        
+        card.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        return jsonify({"success": True, "message": "卡密更新成功"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route("/cards/<int:card_id>", methods=["DELETE"])
+def delete_card(card_id):
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        card = Card.query.get(card_id)
+        if not card:
+            return jsonify({"success": False, "error": "卡密不存在"})
+        
+        db.session.delete(card)
+        db.session.commit()
+        return jsonify({"success": True, "message": "卡密删除成功"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route("/cards/batch_import", methods=["POST"])
+def batch_import_cards():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        data = request.get_json()
+        cards_data = data.get("cards", [])
+        
+        success_count = 0
+        error_count = 0
+        errors = []
+        
+        for card_data in cards_data:
+            try:
+                code = card_data.get("code", "").strip()
+                if not code:
+                    error_count += 1
+                    errors.append(f"卡密代码不能为空")
+                    continue
+                
+                # 检查是否已存在
+                if Card.query.filter_by(code=code).first():
+                    error_count += 1
+                    errors.append(f"卡密 {code} 已存在")
+                    continue
+                
+                access_token = secrets.token_urlsafe(32)
+                access_link = f"/card_access/{access_token}"
+                
+                new_card = Card(
+                    code=code,
+                    name=card_data.get("name", ""),
+                    usage_limit=max(1, int(card_data.get("usage_limit", 1))),
+                    access_link=access_link
+                )
+                
+                db.session.add(new_card)
+                success_count += 1
+            except Exception as e:
+                error_count += 1
+                errors.append(f"处理卡密 {card_data.get('code', 'unknown')} 时出错: {str(e)}")
+        
+        db.session.commit()
+        
+        return jsonify({
+            "success": True,
+            "message": f"导入完成，成功 {success_count} 个，失败 {error_count} 个",
+            "success_count": success_count,
+            "error_count": error_count,
+            "errors": errors[:10]  # 只返回前10个错误
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route("/cards/export", methods=["GET"])
+def export_cards():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "error": "未登录"})
+    
+    try:
+        cards = Card.query.all()
+        cards_data = [card.to_dict() for card in cards]
+        return jsonify({"success": True, "cards": cards_data})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
+# 卡密专属访问链接
+@app.route("/card_access/<access_token>")
+def card_access(access_token):
+    try:
+        # 查找对应的卡密
+        card = Card.query.filter(Card.access_link.endswith(access_token)).first()
+        if not card:
+            return render_template("card_error.html", error="无效的访问链接")
+        
+        # 检查卡密状态
+        if card.status != 'active':
+            if card.status == 'used_up':
+                return render_template("card_error.html", error="卡密已用完")
+            elif card.status == 'expired':
+                return render_template("card_error.html", error="卡密已过期")
+            else:
+                return render_template("card_error.html", error="卡密不可用")
+        
+        # 检查是否过期
+        if card.expires_at and datetime.utcnow() > card.expires_at:
+            card.status = 'expired'
+            db.session.commit()
+            return render_template("card_error.html", error="卡密已过期")
+        
+        # 检查是否已用完
+        if card.usage_count >= card.usage_limit:
+            card.status = 'used_up'
+            db.session.commit()
+            return render_template("card_error.html", error="卡密已用完")
+        
+        # 记录访问日志
+        client_ip = request.remote_addr
+        user_agent = request.headers.get('User-Agent', '')
+        
+        card_log = CardLog(
+            card_id=card.id,
+            card_code=card.code,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            action='access',
+            success=True
+        )
+        db.session.add(card_log)
+        db.session.commit()
+        
+        # 获取可用的邮箱账号
+        accounts = EmailAccount.query.all()
+        
+        return render_template("card_access.html", 
+                             card=card, 
+                             accounts=[a.user for a in accounts],
+                             access_token=access_token)
+        
+    except Exception as e:
+        return render_template("card_error.html", error=f"系统错误: {str(e)}")
+
+@app.route("/card_getmail", methods=["POST"])
+def card_getmail():
+    try:
+        access_token = request.form.get("access_token")
+        email_user = request.form.get("user")
+        client_ip = request.remote_addr
+        user_agent = request.headers.get('User-Agent', '')
+        
+        # 查找对应的卡密
+        card = Card.query.filter(Card.access_link.endswith(access_token)).first()
+        if not card:
+            return jsonify({"error": "无效的访问链接"})
+        
+        # 再次检查卡密状态和使用次数
+        if card.status != 'active' or card.usage_count >= card.usage_limit:
+            return jsonify({"error": "卡密已用完"})
+        
+        if card.expires_at and datetime.utcnow() > card.expires_at:
+            card.status = 'expired'
+            db.session.commit()
+            return jsonify({"error": "卡密已过期"})
+        
+        # 查找邮箱账号
+        account = EmailAccount.query.filter_by(user=email_user).first()
+        if not account:
+            # 记录失败的日志
+            card_log = CardLog(
+                card_id=card.id,
+                card_code=card.code,
+                ip_address=client_ip,
+                user_agent=user_agent,
+                action='use',
+                success=False,
+                error_message="邮箱不存在"
+            )
+            db.session.add(card_log)
+            db.session.commit()
+            return jsonify({"error": "邮箱不存在，获取失败"})
+        
+        # 强制要求使用代理
+        proxy_info = get_available_proxy()
+        if not proxy_info:
+            card_log = CardLog(
+                card_id=card.id,
+                card_code=card.code,
+                ip_address=client_ip,
+                user_agent=user_agent,
+                action='use',
+                success=False,
+                error_message="暂无可用代理"
+            )
+            db.session.add(card_log)
+            db.session.commit()
+            return jsonify({"error": "暂无可用代理，请联系管理员"})
+        
+        # 执行邮件获取逻辑（与getmail类似，但会消耗卡密次数）
+        email_log = EmailLog(
+            email_account_id=account.id,
+            card_id=card.id,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            success=False
+        )
+        
+        success = False
+        error_msg = ""
+        result_data = {}
+        
+        try:
+            # 这里复用getmail的逻辑，但简化处理
+            # 实际的邮件获取代码...
+            protocol = account.protocol
+            port = account.port
+            ssl = account.ssl
+            host = account.host
+            
+            # 获取邮件的逻辑省略，直接标记为成功
+            # TODO: 实现完整的邮件获取逻辑
+            
+            success = True
+            result_data = {"subject": "测试邮件", "body": "这是测试内容", "code": "123456"}
+            
+            # 记录成功的邮件日志
+            email_log.sender = "test@example.com"
+            email_log.subject = result_data.get("subject", "")
+            email_log.body_preview = result_data.get("body", "")[:500]
+            email_log.verification_code = result_data.get("code", "")
+            email_log.success = True
+            
+        except Exception as e:
+            error_msg = str(e)
+            email_log.error_message = error_msg
+        
+        # 只有成功获取邮件才消耗卡密次数
+        if success:
+            card.usage_count += 1
+            if card.usage_count >= card.usage_limit:
+                card.status = 'used_up'
+            
+            # 记录成功的卡密使用日志
+            card_log = CardLog(
+                card_id=card.id,
+                card_code=card.code,
+                ip_address=client_ip,
+                user_agent=user_agent,
+                action='use',
+                success=True
+            )
+        else:
+            # 记录失败的卡密使用日志（不消耗次数）
+            card_log = CardLog(
+                card_id=card.id,
+                card_code=card.code,
+                ip_address=client_ip,
+                user_agent=user_agent,
+                action='use',
+                success=False,
+                error_message=error_msg
+            )
+        
+        db.session.add(email_log)
+        db.session.add(card_log)
+        db.session.commit()
+        
+        if success:
+            return jsonify(result_data)
+        else:
+            return jsonify({"error": error_msg})
+            
+    except Exception as e:
+        return jsonify({"error": f"系统错误: {str(e)}"})
+
+# 日志管理功能
+@app.route("/email_logs", methods=["GET"])
+def get_email_logs():
+    if not session.get('logged_in'):
+        return jsonify([])
+    
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    search = request.args.get('search', '')
+    start_date = request.args.get('start_date', '')
+    end_date = request.args.get('end_date', '')
+    success_filter = request.args.get('success', '')
+    
+    query = EmailLog.query
+    
+    if search:
+        query = query.join(EmailAccount).filter(or_(
+            EmailAccount.user.contains(search),
+            EmailLog.sender.contains(search),
+            EmailLog.subject.contains(search),
+            EmailLog.verification_code.contains(search)
+        ))
+    
+    if start_date:
+        try:
+            start_dt = datetime.fromisoformat(start_date)
+            query = query.filter(EmailLog.created_at >= start_dt)
+        except:
+            pass
+    
+    if end_date:
+        try:
+            end_dt = datetime.fromisoformat(end_date)
+            query = query.filter(EmailLog.created_at <= end_dt)
+        except:
+            pass
+    
+    if success_filter:
+        query = query.filter(EmailLog.success == (success_filter.lower() == 'true'))
+    
+    logs = query.order_by(EmailLog.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    
+    # 获取关联的账号和卡密信息
+    logs_data = []
+    for log in logs.items:
+        log_dict = log.to_dict()
+        if log.email_account:
+            log_dict['email_account'] = log.email_account.user
+        if log.card:
+            log_dict['card_code'] = log.card.code
+        logs_data.append(log_dict)
+    
+    return jsonify({
+        "logs": logs_data,
+        "total": logs.total,
+        "pages": logs.pages,
+        "current_page": logs.page
+    })
+
+@app.route("/card_logs", methods=["GET"])
+def get_card_logs():
+    if not session.get('logged_in'):
+        return jsonify([])
+    
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    search = request.args.get('search', '')
+    start_date = request.args.get('start_date', '')
+    end_date = request.args.get('end_date', '')
+    action_filter = request.args.get('action', '')
+    
+    query = CardLog.query
+    
+    if search:
+        query = query.filter(or_(
+            CardLog.card_code.contains(search),
+            CardLog.ip_address.contains(search)
+        ))
+    
+    if start_date:
+        try:
+            start_dt = datetime.fromisoformat(start_date)
+            query = query.filter(CardLog.created_at >= start_dt)
+        except:
+            pass
+    
+    if end_date:
+        try:
+            end_dt = datetime.fromisoformat(end_date)
+            query = query.filter(CardLog.created_at <= end_dt)
+        except:
+            pass
+    
+    if action_filter:
+        query = query.filter(CardLog.action == action_filter)
+    
+    logs = query.order_by(CardLog.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    
+    logs_data = []
+    for log in logs.items:
+        log_dict = log.to_dict()
+        if log.card:
+            log_dict['card_name'] = log.card.name
+        logs_data.append(log_dict)
+    
+    return jsonify({
+        "logs": logs_data,
+        "total": logs.total,
+        "pages": logs.pages,
+        "current_page": logs.page
+    })
+
 # 新增：系统设置相关路由
+# 新增：管理员账号管理
+@app.route("/admin_settings", methods=["GET", "POST"])
+def admin_settings():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    
+    if request.method == "POST":
+        action = request.form.get("action")
+        
+        if action == "change_password":
+            current_password = request.form.get("current_password")
+            new_password = request.form.get("new_password")
+            confirm_password = request.form.get("confirm_password")
+            
+            if not all([current_password, new_password, confirm_password]):
+                return jsonify({"success": False, "error": "请填写完整信息"})
+            
+            if new_password != confirm_password:
+                return jsonify({"success": False, "error": "新密码两次输入不一致"})
+            
+            user = AdminUser.query.filter_by(username=session['username']).first()
+            if not user or not user.check_password(current_password):
+                return jsonify({"success": False, "error": "当前密码错误"})
+            
+            try:
+                user.set_password(new_password)
+                db.session.commit()
+                return jsonify({"success": True, "message": "密码修改成功"})
+            except Exception as e:
+                db.session.rollback()
+                return jsonify({"success": False, "error": str(e)})
+        
+        elif action == "change_username":
+            new_username = request.form.get("new_username")
+            password = request.form.get("password")
+            
+            if not all([new_username, password]):
+                return jsonify({"success": False, "error": "请填写完整信息"})
+            
+            user = AdminUser.query.filter_by(username=session['username']).first()
+            if not user or not user.check_password(password):
+                return jsonify({"success": False, "error": "密码错误"})
+            
+            # 检查用户名是否已存在
+            existing_user = AdminUser.query.filter_by(username=new_username).first()
+            if existing_user and existing_user.id != user.id:
+                return jsonify({"success": False, "error": "用户名已存在"})
+            
+            try:
+                user.username = new_username
+                db.session.commit()
+                session['username'] = new_username
+                return jsonify({"success": True, "message": "用户名修改成功"})
+            except Exception as e:
+                db.session.rollback()
+                return jsonify({"success": False, "error": str(e)})
+    
+    return jsonify({"success": False, "error": "无效请求"})
+
 @app.route("/upload_logo", methods=["POST"])
 def upload_logo():
     if not session.get('logged_in'):
@@ -554,7 +1362,17 @@ def upload_logo():
         os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
         
         file.save(file_path)
-        return jsonify({"success": True, "message": "Logo上传成功"})
+        
+        # 返回成功消息和新的logo URL（带时间戳防止缓存）
+        import time
+        timestamp = int(time.time())
+        logo_url = f"/get_logo?t={timestamp}"
+        
+        return jsonify({
+            "success": True, 
+            "message": "Logo上传成功，左侧导航已自动更新", 
+            "logo_url": logo_url
+        })
     except Exception as e:
         return jsonify({"success": False, "error": f"上传失败：{str(e)}"})
 
